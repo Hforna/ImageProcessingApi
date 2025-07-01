@@ -36,13 +36,18 @@ namespace ImageProcessor.Api.Controllers
                 return BadRequest("User with this e-mail already exists");
 
             if (request.Password.Length < 8)
+            {
+                _logger.LogError($"Password {request.Password} invalid when validated length");
                 return BadRequest("Password length must be greather or equal than 8");
+            }
 
             var user = _mapper.Map<User>(request);
             user.PasswordHash = _passwordEncrypt.EncryptPassword(request.Password);
 
             await _uow.UserRepository.AddAsync(user);
             await _uow.Commit();
+
+            _logger.LogInformation($"User {user.UserName} was created with id {user.Id}");
 
             var response = _mapper.Map<UserDto>(user);
 

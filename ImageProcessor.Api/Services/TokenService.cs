@@ -1,4 +1,5 @@
 ﻿using ImageProcessor.Api.Data;
+using ImageProcessor.Api.Model;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -12,6 +13,8 @@ namespace ImageProcessor.Api.Services
         public DateTime GetExpirationTime();
         public string GenerateRefreshToken();
         public Guid ValidateToken(string token);
+        public Task<User?> GetUserByToken(string token);
+        public string? GetRequestToken();
     }
 
     public class TokenService : ITokenService
@@ -19,12 +22,15 @@ namespace ImageProcessor.Api.Services
         private readonly string _signKey;
         private readonly int _expireAt;
         private readonly IUnitOfWork _uow;
+        private readonly IHttpContextAccessor _httpContext;
 
-        public TokenService(string signKey, int expireAt, IUnitOfWork uow)
+        public TokenService(string signKey, int expireAt, 
+            IUnitOfWork uow, IHttpContextAccessor httpContext)
         {
             _signKey = signKey;
             _expireAt = expireAt;
             _uow = uow;
+            _httpContext = httpContext;
         }
 
         public string GenerateRefreshToken()
@@ -53,6 +59,27 @@ namespace ImageProcessor.Api.Services
         public DateTime GetExpirationTime()
         {
             return DateTime.UtcNow.AddMinutes(_expireAt);
+        }
+
+        public string? GetRequestToken()
+        {
+            var token = _httpContext.HttpContext.Request.Headers.Authorization.ToString();
+
+            if (string.IsNullOrEmpty(token))
+                return null;
+
+            return token["Bearer ".Length..].Trim();
+        }
+
+        public async Task<User?> GetUserByToken(string token)
+        {
+            var handler = new JwtSecurityTokenHandler();
+
+            var read = handler.ReadJwtToken(token);
+
+            var uid = Guid.Parse(read.Claims.FirstOrDefault(d => d.Type == ClaimTypes.Sid)!.Value);
+
+            return await _uow.UserRepository.UserByIdentifier(uid);
         }
 
         public Guid ValidateToken(string token)

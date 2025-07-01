@@ -32,17 +32,24 @@ builder.Services.AddScoped(cfg =>
     return config.CreateMapper();
 });
 
+builder.Services.AddSingleton<ImageService>();
+
+builder.Services.AddScoped<IStorageService, AzureBlobStorageService>(d => new AzureBlobStorageService(
+    new Azure.Storage.Blobs.BlobServiceClient(builder.Configuration.GetValue<string>("services:azure:blobClient"))));
+
 builder.Services.AddSingleton<IPasswordEncrypt, PasswordBcrypt>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+builder.Services.AddHttpContextAccessor();
 
 var signKey = builder.Configuration.GetValue<string>("services:jwt:signKey");
 var expires = builder.Configuration.GetValue<int>("services:jwt:expiresAt");
 
 builder.Services.AddScoped<ITokenService, TokenService>(d => new TokenService(signKey, 
     expires, 
-    d.CreateScope().ServiceProvider.GetRequiredService<IUnitOfWork>()));
+    d.CreateScope().ServiceProvider.GetRequiredService<IUnitOfWork>(), d.CreateScope().ServiceProvider.GetRequiredService<IHttpContextAccessor>()));
 
 var app = builder.Build();
 
@@ -54,6 +61,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
