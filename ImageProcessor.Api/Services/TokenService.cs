@@ -9,6 +9,9 @@ namespace ImageProcessor.Api.Services
     public interface ITokenService
     {
         public string GenerateToken(Guid userIdentifier);
+        public DateTime GetExpirationTime();
+        public string GenerateRefreshToken();
+        public Guid ValidateToken(string token);
     }
 
     public class TokenService : ITokenService
@@ -22,6 +25,11 @@ namespace ImageProcessor.Api.Services
             _signKey = signKey;
             _expireAt = expireAt;
             _uow = uow;
+        }
+
+        public string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(Guid.NewGuid().ToByteArray());
         }
 
         public string GenerateToken(Guid userIdentifier)
@@ -40,6 +48,30 @@ namespace ImageProcessor.Api.Services
             var create = handler.CreateToken(descriptor);
 
             return handler.WriteToken(create);
+        }
+
+        public DateTime GetExpirationTime()
+        {
+            return DateTime.UtcNow.AddMinutes(_expireAt);
+        }
+
+        public Guid ValidateToken(string token)
+        {
+            var validatorParameters = new TokenValidationParameters()
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = GenerateSecurityKey(),
+                ValidateIssuer = false,
+                ValidateAudience = false
+            };
+
+            var handler = new JwtSecurityTokenHandler();
+
+            var validate = handler.ValidateToken(token, validatorParameters, out var validatedToken);
+
+            var uid = validate.Claims.FirstOrDefault(d => d.Type == ClaimTypes.Sid)!.Value;
+
+            return Guid.Parse(uid);
         }
 
         SymmetricSecurityKey GenerateSecurityKey()

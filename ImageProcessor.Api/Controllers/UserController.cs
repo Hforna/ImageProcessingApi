@@ -30,6 +30,11 @@ namespace ImageProcessor.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> SignUp([FromBody]SignUpDto request)
         {
+            var userEmailExists = await _uow.UserRepository.UserByEmail(request.Email);
+
+            if (userEmailExists is not null)
+                return BadRequest("User with this e-mail already exists");
+
             if (request.Password.Length < 8)
                 return BadRequest("Password length must be greather or equal than 8");
 
@@ -44,5 +49,34 @@ namespace ImageProcessor.Api.Controllers
             return Created(string.Empty, response);
         }
 
+        [HttpPost("sign-in")]
+        public async Task<IActionResult> SignIn([FromBody]SignInDto request)
+        {
+            var user = await _uow.UserRepository.UserByEmail(request.Email);
+
+            if (user is null)
+                return NotFound("User with this e-mail not exists");
+
+            var isValidPassword = _passwordEncrypt.VerifyPassword(request.Password, user.PasswordHash);
+
+            if (!isValidPassword)
+                return BadRequest("Invalid password");
+
+            var token = _tokenService.GenerateToken(user.UserIdentifier);
+            user.RefreshToken = _tokenService.GenerateRefreshToken();
+            user.RefreshExpiresAt = _tokenService.GetExpirationTime();
+
+            _uow.UserRepository.Update(user);
+            await _uow.Commit();
+
+            var response = new SignInResponseDto()
+            {
+                AccessToken = token,
+                RefreshToken = user.RefreshToken,
+                ExpiresAt = user.RefreshExpiresAt
+            };
+
+            return Ok(response);
+        }
     }
 }
