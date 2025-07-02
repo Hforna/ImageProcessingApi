@@ -3,6 +3,7 @@ using ImageProcessor.Api.Data;
 using ImageProcessor.Api.Dtos;
 using ImageProcessor.Api.Model;
 using ImageProcessor.Api.Services;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ImageProcessor.Api.Controllers
@@ -54,7 +55,15 @@ namespace ImageProcessor.Api.Controllers
             return Created(string.Empty, response);
         }
 
+        /// <summary>
+        /// Sign in by e-mail and password reciving tokens for user authentications
+        /// </summary>
+        /// <param name="request">email and password of user account</param>
+        /// <returns>return a json response containing an access token for user authenticate and a refresh token when access token expires</returns>
         [HttpPost("sign-in")]
+        [ProducesResponseType(typeof(NotFound), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(BadRequest), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Ok), StatusCodes.Status200OK)]
         public async Task<IActionResult> SignIn([FromBody]SignInDto request)
         {
             var user = await _uow.UserRepository.UserByEmail(request.Email);

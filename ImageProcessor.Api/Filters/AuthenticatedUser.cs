@@ -5,12 +5,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace ImageProcessor.Api.Filters
 {
-    public class UserAuthenticated : IAsyncAuthorizationFilter
+    public class AuthenticatedUser : IAsyncAuthorizationFilter
     {
         private readonly ITokenService _tokenService;
         private readonly IUnitOfWork _uow;
 
-        public UserAuthenticated(ITokenService tokenService, IUnitOfWork uow)
+        public AuthenticatedUser(ITokenService tokenService, IUnitOfWork uow)
         {
             _tokenService = tokenService;
             _uow = uow;
