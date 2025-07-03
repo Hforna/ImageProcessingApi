@@ -1,5 +1,6 @@
 ﻿using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Sas;
 using System.IO;
 
 namespace ImageProcessor.Api.Services
@@ -23,13 +24,13 @@ namespace ImageProcessor.Api.Services
             await blob.UploadAsync(image, overwrite: true);
         }
 
-        public async Task<Stream> GetImageByName(Guid userId, string imageName)
+        public async Task<Stream> GetImageStreamByName(Guid userId, string imageName)
         {
             var container = _blobClient.GetBlobContainerClient(userId.ToString());
             var exists = await container.ExistsAsync();
 
             if (!exists)
-                throw new FileNotFoundException("Image not exists");
+                throw new FileNotFoundException("User container doesn't exist");
 
             var blob = container.GetBlobClient(imageName);
             exists = await blob.ExistsAsync();
@@ -45,6 +46,32 @@ namespace ImageProcessor.Api.Services
             memoryStream.Position = 0;
 
             return memoryStream;
+        }
+
+        public async Task<string> GetImageUrlByName(Guid userId, string imageName)
+        {
+            var container = _blobClient.GetBlobContainerClient(userId.ToString());
+            var exists = await container.ExistsAsync();
+
+            if(!exists)
+                throw new Exception("User container doesn't exist");
+
+            var blob = container.GetBlobClient(imageName);
+            exists = await blob.ExistsAsync();
+
+            if (!exists)
+                throw new FileNotFoundException("Image not exists");
+
+            var sasBuilder = new BlobSasBuilder()
+            {
+                BlobContainerName = container.Name,
+                ExpiresOn = DateTime.UtcNow.AddMinutes(30),
+                Resource = "b"
+            };
+            sasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+
+            return blob.GenerateSasUri(sasBuilder).ToString();
         }
     }
 }

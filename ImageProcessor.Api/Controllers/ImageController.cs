@@ -3,10 +3,13 @@ using ImageProcessor.Api.Data;
 using ImageProcessor.Api.Dtos;
 using ImageProcessor.Api.Enums;
 using ImageProcessor.Api.Exceptions;
+using ImageProcessor.Api.Model;
 using ImageProcessor.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.TagHelpers;
+using Microsoft.Identity.Client;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace ImageProcessor.Api.Controllers
 {
@@ -58,6 +61,51 @@ namespace ImageProcessor.Api.Controllers
             });
         }
 
+        [HttpPost("{imageName}/resize")]
+        public async Task<IActionResult> ResizeImage([FromBody]ReziseImageDto request, [FromRoute]string imageName)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+
+            var validate = _imageService.ValidateImage(image);
+
+            if(!validate.isValid)
+            {
+                _logger.LogError("File got from storage isn't valid");
+                throw new Exception("Invalid file format");
+            }
+            var resizeImage = await _imageService.ReziseImage(image, request.Width, request.Height);
+
+            var targetType = validate.ext[1..];
+            var baseName = Path.GetFileNameWithoutExtension(imageName);
+
+            return File(resizeImage, $"img/{targetType}", $"{baseName}.{targetType}");
+        }
+
+        [HttpGet("{imageName}")]
+        public async Task<IActionResult> GetImageByName([FromRoute]string imageName)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            try
+            {
+                var image = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+                _logger.LogInformation($"Image sas was generated: {image}");
+
+                return Ok(image);
+            }catch(FileNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Internal error: {ex.Message}");
+
+                return StatusCode(500, ex.Message);
+            }
+        }
+
         [HttpPost("{imageName}/format")]
         public async Task<IActionResult> ChangeImageFormat([FromBody]ImageFormatDto request, [FromRoute]string imageName)
         {
@@ -65,7 +113,7 @@ namespace ImageProcessor.Api.Controllers
 
             try
             {
-                using var image = await _storageService.GetImageByName(user.UserIdentifier, imageName);
+                using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
                 var validate = _imageService.ValidateImage(image);
 
@@ -75,7 +123,7 @@ namespace ImageProcessor.Api.Controllers
                     throw new Exception("Invalid file format");
                 }
 
-                var targetFormat = ImageTypesEnum.JPEG.ToString().ToLower();
+                var targetFormat = request.FormatType.ToString().ToLower();
 
                 if (validate.ext[1..] == targetFormat)
                     return BadRequest("Format type must be different from current");
@@ -87,9 +135,12 @@ namespace ImageProcessor.Api.Controllers
                 return File(convert, returnType, $"{baseImageName}.{targetFormat}");
             } catch(FileNotFoundOnStorageException ex)
             {
+                _logger.LogError(ex, $"Image: {imageName} not found on storage");
+
                 return NotFound(ex.Message);
             }catch(Exception ex)
             {
+                _logger.LogError(ex, $"An error occured: {ex.Message}");
                 return StatusCode(500, ex.Message);
             }
         }

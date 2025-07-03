@@ -3,6 +3,8 @@ using FileTypeChecker.Types;
 using ImageProcessor.Api.Enums;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Processing;
 
 namespace ImageProcessor.Api.Services
 {
@@ -28,11 +30,30 @@ namespace ImageProcessor.Api.Services
             return (valid, ext);
         }
 
+        public async Task<Stream> ReziseImage(Stream imageStream, int width, int height)
+        {
+            using var outputStream = new MemoryStream();
+
+            using(var image = await Image.LoadAsync(imageStream))
+            {
+                width /= 2;
+                height /= 2;
+
+                image.Mutate(d => d.Resize(width: width, height: height));
+
+                await image.SaveAsync(outputStream, new PngEncoder());
+            }
+
+            outputStream.Position = 0;
+
+            return outputStream;
+        }
+
         public async Task<Stream> ConvertImageType(Stream imageStream, ImageTypesEnum imageType)
         {
-            var outputStream = new MemoryStream();
+            using var outputStream = new MemoryStream();
 
-            using(var image = await Image.LoadAsync(""))
+            using(var image = await Image.LoadAsync(imageStream))
             {
                 switch(imageType)
                 {
