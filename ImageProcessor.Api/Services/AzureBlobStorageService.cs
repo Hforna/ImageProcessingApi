@@ -73,5 +73,14 @@ namespace ImageProcessor.Api.Services
 
             return blob.GenerateSasUri(sasBuilder).ToString();
         }
+
+        public async Task UploadImageOnProcess(Stream image, string imageName)
+        {
+            var container = _blobClient.GetBlobContainerClient("images_processing");
+            await container.CreateIfNotExistsAsync();
+
+            var blob = container.GetBlobClient(imageName);
+            await blob.UploadAsync(image, overwrite: true);
+        }
     }
 }

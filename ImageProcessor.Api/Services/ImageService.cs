@@ -3,6 +3,7 @@ using FileTypeChecker.Types;
 using ImageProcessor.Api.Enums;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 
@@ -30,18 +31,58 @@ namespace ImageProcessor.Api.Services
             return (valid, ext);
         }
 
-        public async Task<Stream> ReziseImage(Stream imageStream, int width, int height)
+        public async Task<Stream> CropImage(Stream imageStream, int width, int height, ImageTypesEnum imageType)
         {
-            using var outputStream = new MemoryStream();
+            var outputStream = new MemoryStream();
+
+            using(var image = await Image.LoadAsync(imageStream))
+            {
+                image.Mutate(d => d.Crop(width, height));
+
+                await SaveImageBasedOnImageType(image, outputStream, imageType);
+            }
+
+            outputStream.Position = 0;
+
+            return outputStream;
+        }
+
+        private async Task SaveImageBasedOnImageType(Image image, Stream outputStream, ImageTypesEnum imageType)
+        {
+            IImageEncoder imageEncoder;
+
+            switch(imageType)
+            {
+                case ImageTypesEnum.JPEG:
+                    imageEncoder = new JpegEncoder();
+                    break;
+                case ImageTypesEnum.PNG:
+                    imageEncoder = new PngEncoder();
+                    break;
+                default:
+                    imageEncoder = new PngEncoder();
+                    break;
+            }
+
+            await image.SaveAsync(outputStream, imageEncoder);
+        }
+
+        public async Task<Stream> ResizeImage(Stream imageStream, int width, int height, ImageTypesEnum imageType)
+        {
+            var outputStream = new MemoryStream();
 
             using(var image = await Image.LoadAsync(imageStream))
             {
                 width /= 2;
                 height /= 2;
 
-                image.Mutate(d => d.Resize(width: width, height: height));
+                image.Mutate(d => d.Resize(new ResizeOptions()
+                {
+                    Size = new Size(width, height),
+                    Sampler = KnownResamplers.Lanczos8
+                }));
 
-                await image.SaveAsync(outputStream, new PngEncoder());
+                await SaveImageBasedOnImageType(image, outputStream, imageType);
             }
 
             outputStream.Position = 0;
@@ -51,7 +92,7 @@ namespace ImageProcessor.Api.Services
 
         public async Task<Stream> ConvertImageType(Stream imageStream, ImageTypesEnum imageType)
         {
-            using var outputStream = new MemoryStream();
+            var outputStream = new MemoryStream();
 
             using(var image = await Image.LoadAsync(imageStream))
             {
@@ -71,7 +112,7 @@ namespace ImageProcessor.Api.Services
             return outputStream;
         }
 
-        private string GetExtension(string ext)
+        public static string GetExtension(string ext)
         {
             return ext.StartsWith('.') ? ext : $".{ext}";
         }

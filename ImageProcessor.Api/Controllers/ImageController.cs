@@ -1,9 +1,13 @@
 ﻿using ImageProcessor.Api.Attributes;
 using ImageProcessor.Api.Data;
 using ImageProcessor.Api.Dtos;
+using ImageProcessor.Api.Dtos.Transformation;
 using ImageProcessor.Api.Enums;
 using ImageProcessor.Api.Exceptions;
+using ImageProcessor.Api.Extensions;
 using ImageProcessor.Api.Model;
+using ImageProcessor.Api.RabbitMq.Messages;
+using ImageProcessor.Api.RabbitMq.Producers;
 using ImageProcessor.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -23,23 +27,26 @@ namespace ImageProcessor.Api.Controllers
         private readonly IStorageService _storageService;
         private readonly ImageService _imageService;
         private readonly ITokenService _tokenService;
+        private readonly IProcessImageProducer _imageProducer;
 
         public ImageController(ILogger<ImageController> logger, IUnitOfWork uow, 
-            IStorageService storageService, ImageService imageService, ITokenService tokenService)
+            IStorageService storageService, ImageService imageService, 
+            ITokenService tokenService, IProcessImageProducer imageProducer)
         {
             _logger = logger;
             _uow = uow;
+            _imageProducer = imageProducer;
             _storageService = storageService;
             _imageService = imageService;
             _tokenService = tokenService;
         }
 
         [HttpPost]
-        public async Task<IActionResult> UploadImage(IFormFile file)
+        public async Task<IActionResult> UploadImage([FromForm]UploadImageDto request)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
-            using var stream = file.OpenReadStream();
+            using var stream = request.File.OpenReadStream();
 
             var validateFile = _imageService.ValidateImage(stream);
             
@@ -49,9 +56,11 @@ namespace ImageProcessor.Api.Controllers
                 return BadRequest("File must be an image");
             }
 
-            var imageName = $"{Guid.NewGuid()}{validateFile.ext}";
+            var imageName = string.IsNullOrEmpty(request.ImageName) 
+                ? $"{Guid.NewGuid()}{validateFile.ext}" 
+                : $"{request.ImageName}{validateFile.ext}";
 
-            await _storageService.UploadImage(user.Id, imageName, stream);
+            await _storageService.UploadImage(user.UserIdentifier, imageName, stream);
             _logger.LogInformation($"User {user.UserName} uploaded an image: {imageName}");
 
             return Ok(new ImageResponseDto()
@@ -62,7 +71,40 @@ namespace ImageProcessor.Api.Controllers
         }
 
         [HttpPost("{imageName}/resize")]
-        public async Task<IActionResult> ResizeImage([FromBody]ReziseImageDto request, [FromRoute]string imageName)
+        public async Task<IActionResult> ResizeImage([FromBody]ReziseImageDto request, [FromRoute]string imageName, 
+            [FromQuery]bool highQuality, [FromQuery]string callbackUrl)
+        {
+            if (highQuality && string.IsNullOrEmpty(callbackUrl))
+                return BadRequest("Callback param from query cannot be null when high quality param is set as true");
+
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+
+            var validate = _imageService.ValidateImage(image);
+
+            if(!validate.isValid)
+            {
+                _logger.LogError("File got from storage isn't a valid");
+                throw new Exception("Invalid file format");
+            }
+
+            var message = new ResizeImageMessage()
+            {
+                Height = request.Height,
+                Width = request.Width,
+                ImageName = imageName,
+                ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                UserIdentifier = user.UserIdentifier
+            };
+
+            await _imageProducer.SendImageForResize(message);
+
+            return Ok("message is being processed");
+        }
+
+        [HttpPost("{imageName}/crop")]
+        public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
@@ -72,15 +114,19 @@ namespace ImageProcessor.Api.Controllers
 
             if(!validate.isValid)
             {
-                _logger.LogError("File got from storage isn't valid");
+                _logger.LogError("File got from storage isn't a valid");
                 throw new Exception("Invalid file format");
             }
-            var resizeImage = await _imageService.ReziseImage(image, request.Width, request.Height);
 
-            var targetType = validate.ext[1..];
+            var crop = await _imageService.CropImage(image, request.Width, request.Height, (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!);
+
+            var imageType = validate.ext[1..];
             var baseName = Path.GetFileNameWithoutExtension(imageName);
 
-            return File(resizeImage, $"img/{targetType}", $"{baseName}.{targetType}");
+            if (request.SaveChanges)
+                await _storageService.UploadImage(user.UserIdentifier, imageName, crop);
+
+            return File(crop, $"img/{imageType}", $"{baseName}.{imageType}");
         }
 
         [HttpGet("{imageName}")]
@@ -130,6 +176,9 @@ namespace ImageProcessor.Api.Controllers
 
                 var convert = await _imageService.ConvertImageType(image, request.FormatType);
                 var baseImageName = Path.GetFileNameWithoutExtension(imageName);
+
+                if (request.SaveChanges)
+                    await _storageService.UploadImage(user.UserIdentifier, imageName, convert);
 
                 var returnType = $"img/{targetFormat}";
                 return File(convert, returnType, $"{baseImageName}.{targetFormat}");

@@ -5,6 +5,7 @@ using ImageProcessor.Api.Model;
 using ImageProcessor.Api.Repositories;
 using ImageProcessor.Api.Services;
 using AutoMapper;
+using ImageProcessor.Api.RabbitMq.Producers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,8 @@ builder.Services.AddSingleton<IPasswordEncrypt, PasswordBcrypt>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+builder.Services.AddScoped<IProcessImageProducer, ProcessImageProducer>();
 
 builder.Services.AddHttpContextAccessor();
 
