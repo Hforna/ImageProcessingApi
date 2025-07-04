@@ -6,6 +6,7 @@ using ImageProcessor.Api.Repositories;
 using ImageProcessor.Api.Services;
 using AutoMapper;
 using ImageProcessor.Api.RabbitMq.Producers;
+using ImageProcessor.Api.RabbitMq.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,9 +44,14 @@ builder.Services.AddSingleton<IPasswordEncrypt, PasswordBcrypt>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
+//rabbitmq
+builder.Services.AddHostedService<ResizeImageConsumer>();
+
 builder.Services.AddScoped<IProcessImageProducer, ProcessImageProducer>();
 
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddHttpClient();
 
 var signKey = builder.Configuration.GetValue<string>("services:jwt:signKey");
 var expires = builder.Configuration.GetValue<int>("services:jwt:expiresAt");

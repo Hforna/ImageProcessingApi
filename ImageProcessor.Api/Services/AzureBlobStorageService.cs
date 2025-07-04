@@ -70,7 +70,6 @@ namespace ImageProcessor.Api.Services
             };
             sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
-
             return blob.GenerateSasUri(sasBuilder).ToString();
         }
 

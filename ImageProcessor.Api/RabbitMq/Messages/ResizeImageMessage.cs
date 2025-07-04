@@ -9,6 +9,7 @@ namespace ImageProcessor.Api.RabbitMq.Messages
         public int Height { get; set; }
         public string ImageName { get; set; }
         public bool SaveImage { get; set; }
+        public string CallbackUrl { get; set; }
         public ImageTypesEnum ImageType { get; set; }
     }
 }

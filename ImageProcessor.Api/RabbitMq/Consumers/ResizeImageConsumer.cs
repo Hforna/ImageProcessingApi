@@ -2,6 +2,7 @@
 using ImageProcessor.Api.RabbitMq.Messages;
 using ImageProcessor.Api.Services;
 using Microsoft.AspNetCore.Mvc.TagHelpers;
+using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Runtime.Serialization;
@@ -19,11 +20,13 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
         private readonly ILogger<ResizeImageConsumer> _logger;
         private readonly ImageService imageService;
         private readonly IStorageService _storageService;
+        private readonly IHttpClientFactory _httpClient;
 
         public ResizeImageConsumer(IConfiguration configuration, ImageService imageService, 
-            IStorageService storageService, ILogger<ResizeImageConsumer> logger)
+            IStorageService storageService, ILogger<ResizeImageConsumer> logger, IHttpClientFactory httpClient)
         {
             _configuration = configuration;
+            _httpClient = httpClient;
             _imageService = imageService;
             _logger = logger;
             _storageService = storageService;
@@ -59,14 +62,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                 {
                     var deserialize = JsonSerializer.Deserialize<ResizeImageMessage>(message);
 
-                    using var image = await _storageService.GetImageStreamByName(deserialize.UserIdentifier, deserialize.ImageName);
-
-                    using var resizeImage = await _imageService.ResizeImage(image, deserialize.Width, deserialize.Height, deserialize.ImageType);
-
-                    await _storageService.UploadImageOnProcess(resizeImage, deserialize.ImageName);
-
-                    if (deserialize.SaveImage)
-                        await _storageService.UploadImage(deserialize.UserIdentifier, deserialize.ImageName, resizeImage);
+                    await ConsumeMessage(deserialize!);
                 }catch(SerializationException ex)
                 {
                     _logger.LogError($"Error occured while trying deserialize message: {ex.Message}, message recived: {message}");
@@ -77,9 +73,33 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                     await _channel.BasicNackAsync(ea.DeliveryTag, true, false);
                 }catch(Exception ex)
                 {
-
+                    _logger.LogError(ex, $"An unexpectedly error occured: {ex.Message}");
                 }
             };
+        }
+
+        private async Task ConsumeMessage(ResizeImageMessage message)
+        {
+            using var image = await _storageService.GetImageStreamByName(message.UserIdentifier, message.ImageName);
+
+            using var resizeImage = await _imageService.ResizeImage(image, message.Width, message.Height, message.ImageType);
+
+            await _storageService.UploadImageOnProcess(resizeImage, message.ImageName);
+
+            var newImage = await _storageService.GetImageUrlByName(message.UserIdentifier, message.ImageName);
+
+            var client = _httpClient.CreateClient();
+
+            var response = client.PostAsJsonAsync(message.CallbackUrl, new 
+            {
+                event_type = "resize_image_processed", 
+                image_url = newImage,
+                processed = true,
+                expires_at = DateTime.UtcNow.AddMinutes(30)
+            });
+
+            if (message.SaveImage)
+                await _storageService.UploadImage(message.UserIdentifier, message.ImageName, resizeImage);
         }
     }
 }

@@ -28,6 +28,7 @@ namespace ImageProcessor.Api.Controllers
             _passwordEncrypt = passwordEncrypt;
         }
 
+
         [HttpPost]
         public async Task<IActionResult> SignUp([FromBody]SignUpDto request)
         {

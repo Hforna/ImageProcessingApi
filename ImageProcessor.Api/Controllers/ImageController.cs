@@ -70,13 +70,18 @@ namespace ImageProcessor.Api.Controllers
             });
         }
 
+        /// <summary>
+        /// Resize a image from user images by heigh and width, 
+        /// return a ok and webhook configured will recive the image when
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="imageName">image name got from endpoint /api/image/{imageName}</param>
+        /// <param name="highQuality">set if user wanna image resized in high quality</param>
+        /// <param name="callbackUrl">callback for user recive their image</param>
+        /// <returns>Return ok if message and request is valid</returns>
         [HttpPost("{imageName}/resize")]
-        public async Task<IActionResult> ResizeImage([FromBody]ReziseImageDto request, [FromRoute]string imageName, 
-            [FromQuery]bool highQuality, [FromQuery]string callbackUrl)
+        public async Task<IActionResult> ResizeImage([FromBody]ReziseImageDto request, [FromRoute]string imageName, [FromQuery]string callbackUrl)
         {
-            if (highQuality && string.IsNullOrEmpty(callbackUrl))
-                return BadRequest("Callback param from query cannot be null when high quality param is set as true");
-
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
@@ -95,7 +100,9 @@ namespace ImageProcessor.Api.Controllers
                 Width = request.Width,
                 ImageName = imageName,
                 ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
-                UserIdentifier = user.UserIdentifier
+                UserIdentifier = user.UserIdentifier,
+                SaveImage = request.SaveChanges,
+                CallbackUrl = callbackUrl,
             };
 
             await _imageProducer.SendImageForResize(message);
