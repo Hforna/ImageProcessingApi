@@ -110,13 +110,19 @@ namespace ImageProcessor.Api.Controllers
             return Ok("message is being processed");
         }
 
+        [HttpPost("{imageName}/rotate/{degrees}")]
+        public async Task<IActionResult> RotateImage([FromRoute]string imageName, [FromRoute]float degrees)
+        {
+
+        }
+
         [HttpPost("{imageName}/crop")]
         public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
-
+            
             var validate = _imageService.ValidateImage(image);
 
             if(!validate.isValid)

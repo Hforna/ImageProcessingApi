@@ -45,8 +45,10 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 //rabbitmq
+//consumers
 builder.Services.AddHostedService<ResizeImageConsumer>();
 
+//producers
 builder.Services.AddScoped<IProcessImageProducer, ProcessImageProducer>();
 
 builder.Services.AddHttpContextAccessor();

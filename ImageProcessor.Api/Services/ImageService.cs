@@ -31,6 +31,9 @@ namespace ImageProcessor.Api.Services
             return (valid, ext);
         }
 
+        public double GetImageSizeInMb(long imageLength) => imageLength / (1024.0 * 1024.0);
+        public double GetImageSizeInKb(long imageLength) => imageLength / 1024.0;
+
         public async Task<Stream> CropImage(Stream imageStream, int width, int height, ImageTypesEnum imageType)
         {
             var outputStream = new MemoryStream();

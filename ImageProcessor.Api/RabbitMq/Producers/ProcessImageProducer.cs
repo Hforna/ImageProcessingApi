@@ -8,13 +8,15 @@ namespace ImageProcessor.Api.RabbitMq.Producers
     public interface IProcessImageProducer
     {
         public Task SendImageForResize(ResizeImageMessage message);
+        public Task SendImageForCrop(CropImageMessage message);
     }
 
-    public class ProcessImageProducer : IProcessImageProducer
+    public class ProcessImageProducer : IProcessImageProducer, IAsyncDisposable
     {
         private IChannel _channel;
         private IConfiguration _configuration;
         private IConnection _connection;
+        private const string ExchangeName = "image_process_exchange";
 
         public ProcessImageProducer(IConfiguration configuration)
         {
@@ -33,11 +35,39 @@ namespace ImageProcessor.Api.RabbitMq.Producers
 
             _channel = await _connection.CreateChannelAsync();
 
-            await _channel.ExchangeDeclareAsync("image_process_exchange", "direct", durable: true);
+            await _channel.ExchangeDeclareAsync(ExchangeName, "direct", durable: true);
 
             var serialize = JsonSerializer.Serialize(message);
-            var encode = Encoding.UTF8.GetBytes(serialize);
-            await _channel.BasicPublishAsync("image_process_exchange", "resize.image", encode);
+            var messageBytes = Encoding.UTF8.GetBytes(serialize);
+            await _channel.BasicPublishAsync(ExchangeName, "resize.image", messageBytes);
+        }
+
+        public async Task SendImageForCrop(CropImageMessage message)
+        {
+            _connection = await new ConnectionFactory()
+            {
+                Port = _configuration.GetValue<int>("services:rabbitMq:port"),
+                HostName = _configuration.GetValue<string>("services:rabbitMq:hostName")!,
+                UserName = _configuration.GetValue<string>("services:rabbitMq:username")!,
+                Password = _configuration.GetValue<string>("services:rabbitMq:password")!,
+            }.CreateConnectionAsync();
+
+            _channel = await _connection.CreateChannelAsync();
+
+            await _channel.ExchangeDeclareAsync(ExchangeName, "direct", true);
+
+            var serialize = JsonSerializer.Serialize(message);
+            var messageBytes = Encoding.UTF8.GetBytes(serialize);
+            await _channel.BasicPublishAsync(ExchangeName, "crop.image", messageBytes);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _channel.CloseAsync();
+            await _channel.DisposeAsync();
+
+            await _connection.CloseAsync();
+            await _connection.DisposeAsync();
         }
     }
 }
