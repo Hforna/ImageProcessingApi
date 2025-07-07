@@ -41,35 +41,6 @@ namespace ImageProcessor.Api.Controllers
             _tokenService = tokenService;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> UploadImage([FromForm]UploadImageDto request)
-        {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
-
-            using var stream = request.File.OpenReadStream();
-
-            var validateFile = _imageService.ValidateImage(stream);
-            
-            if (!validateFile.isValid)
-            {
-                _logger.LogError("User image is not valid");
-                return BadRequest("File must be an image");
-            }
-
-            var imageName = string.IsNullOrEmpty(request.ImageName) 
-                ? $"{Guid.NewGuid()}{validateFile.ext}" 
-                : $"{request.ImageName}{validateFile.ext}";
-
-            await _storageService.UploadImage(user.UserIdentifier, imageName, stream);
-            _logger.LogInformation($"User {user.UserName} uploaded an image: {imageName}");
-
-            return Ok(new ImageResponseDto()
-            {
-                ExtensionType = validateFile.ext,
-                ImageName = imageName
-            });
-        }
-
         /// <summary>
         /// Resize a image from user images by heigh and width, 
         /// return a ok and webhook configured will recive the image when
@@ -107,17 +78,27 @@ namespace ImageProcessor.Api.Controllers
 
             await _imageProducer.SendImageForResize(message);
 
-            return Ok("message is being processed");
+            return Ok($"Message is being processed, callbackUrl: {callbackUrl}");
         }
 
-        [HttpPost("{imageName}/rotate/{degrees}")]
-        public async Task<IActionResult> RotateImage([FromRoute]string imageName, [FromRoute]float degrees)
-        {
-
-        }
+        //[HttpGet("{imageName}/rotate")]
+        //public async Task<IActionResult> RotateImage([FromBody]RotateImageDto request, [FromRoute]string imageName)
+        //{
+        //    var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+        //
+        //    var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+        //
+        //    var validate = _imageService.ValidateImage(image);
+        //
+        //    if (!validate.isValid)
+        //    {
+        //        _logger.LogError("File got from storage isn't a valid");
+        //        throw new Exception("Invalid file format");
+        //    }
+        //}
 
         [HttpPost("{imageName}/crop")]
-        public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request)
+        public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request, [FromQuery]string callbackUrl)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
@@ -131,38 +112,20 @@ namespace ImageProcessor.Api.Controllers
                 throw new Exception("Invalid file format");
             }
 
-            var crop = await _imageService.CropImage(image, request.Width, request.Height, (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!);
-
-            var imageType = validate.ext[1..];
-            var baseName = Path.GetFileNameWithoutExtension(imageName);
-
-            if (request.SaveChanges)
-                await _storageService.UploadImage(user.UserIdentifier, imageName, crop);
-
-            return File(crop, $"img/{imageType}", $"{baseName}.{imageType}");
-        }
-
-        [HttpGet("{imageName}")]
-        public async Task<IActionResult> GetImageByName([FromRoute]string imageName)
-        {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
-
-            try
+            var message = new CropImageMessage()
             {
-                var image = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
-                _logger.LogInformation($"Image sas was generated: {image}");
+                CallbackUrl = callbackUrl,
+                Height = request.Height,
+                Width = request.Width,
+                ImageName = imageName,
+                ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                SaveImage = request.SaveChanges,
+                UserIdentifier = user.UserIdentifier
+            };
 
-                return Ok(image);
-            }catch(FileNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError(ex, $"Internal error: {ex.Message}");
+            await _imageProducer.SendImageForCrop(message);
 
-                return StatusCode(500, ex.Message);
-            }
+            return Ok($"Message is being processed, callbackUrl: {callbackUrl}");
         }
 
         [HttpPost("{imageName}/format")]
@@ -206,5 +169,61 @@ namespace ImageProcessor.Api.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+
+        [HttpPost]
+        public async Task<IActionResult> UploadImage([FromForm] UploadImageDto request)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            using var stream = request.File.OpenReadStream();
+
+            var validateFile = _imageService.ValidateImage(stream);
+
+            if (!validateFile.isValid)
+            {
+                _logger.LogError("User image is not valid");
+                return BadRequest("File must be an image");
+            }
+
+            var imageName = string.IsNullOrEmpty(request.ImageName)
+                ? $"{Guid.NewGuid()}{validateFile.ext}"
+                : $"{request.ImageName}{validateFile.ext}";
+
+            await _storageService.UploadImage(user.UserIdentifier, imageName, stream);
+            _logger.LogInformation($"User {user.UserName} uploaded an image: {imageName}");
+
+            return Ok(new ImageResponseDto()
+            {
+                ExtensionType = validateFile.ext,
+                ImageName = imageName
+            });
+        }
+
+
+        [HttpGet("{imageName}")]
+        public async Task<IActionResult> GetImageByName([FromRoute] string imageName)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            try
+            {
+                var image = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+                _logger.LogInformation($"Image sas was generated: {image}");
+
+                return Ok(image);
+            }
+            catch (FileNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Internal error: {ex.Message}");
+
+                return StatusCode(500, ex.Message);
+            }
+        }
+
     }
 }

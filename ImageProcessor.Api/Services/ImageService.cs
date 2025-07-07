@@ -50,6 +50,22 @@ namespace ImageProcessor.Api.Services
             return outputStream;
         }
 
+        public async Task<Stream> RotateImage(Stream imageStream, float degrees, ImageTypesEnum imageType)
+        {
+            var outputStream = new MemoryStream();
+
+            using (var image = await Image.LoadAsync(imageStream))
+            {
+                image.Mutate(d => d.Rotate(degrees));
+
+                await SaveImageBasedOnImageType(image, outputStream, imageType);
+            }
+
+            outputStream.Position = 0;
+
+            return outputStream;
+        }
+
         private async Task SaveImageBasedOnImageType(Image image, Stream outputStream, ImageTypesEnum imageType)
         {
             IImageEncoder imageEncoder;
