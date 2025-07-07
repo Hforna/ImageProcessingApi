@@ -78,24 +78,55 @@ namespace ImageProcessor.Api.Controllers
 
             await _imageProducer.SendImageForResize(message);
 
-            return Ok($"Message is being processed, callbackUrl: {callbackUrl}");
+            return Ok($"Message is being processed, callbackUrl: await on {callbackUrl}");
         }
 
-        //[HttpGet("{imageName}/rotate")]
-        //public async Task<IActionResult> RotateImage([FromBody]RotateImageDto request, [FromRoute]string imageName)
-        //{
-        //    var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
-        //
-        //    var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
-        //
-        //    var validate = _imageService.ValidateImage(image);
-        //
-        //    if (!validate.isValid)
-        //    {
-        //        _logger.LogError("File got from storage isn't a valid");
-        //        throw new Exception("Invalid file format");
-        //    }
-        //}
+        [HttpGet("{imageName}/rotate")]
+        public async Task<IActionResult> RotateImage([FromBody]RotateImageDto request, [FromRoute]string imageName, [FromQuery]string callbackUrl)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+        
+            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+        
+            var validate = _imageService.ValidateImage(image);
+        
+            if (!validate.isValid)
+            {
+                _logger.LogError("File got from storage isn't a valid");
+                throw new Exception("Invalid file format");
+            }
+
+            if(_imageService.GetImageSizeInMb(image.Length) > 5)
+            {
+                var message = new RotateImageMessage()
+                {
+                    CallbackUrl = callbackUrl,
+                    Degrees = request.Degrees,
+                    ImageName = imageName,
+                    ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                    UserIdentifier = user.UserIdentifier,
+                    SaveChanges = request.SaveChanges
+                };
+
+                await _imageProducer.SendImageForRotate(message);
+
+                return Ok($"Message is begin processed, callbackUrl: await on {callbackUrl}");
+            }
+            var imageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!;
+            var rotate = await _imageService.RotateImage(image, request.Degrees, imageType!);
+
+            if (request.SaveChanges)
+                await _storageService.UploadImage(user.UserIdentifier, imageName, rotate);
+
+            var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+
+            return Ok(new ImageResponseDto()
+            {
+                ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                ImageName = imageName,
+                ImageUrl = imageUrl
+            });
+        }
 
         [HttpPost("{imageName}/crop")]
         public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request, [FromQuery]string callbackUrl)
@@ -156,8 +187,14 @@ namespace ImageProcessor.Api.Controllers
                 if (request.SaveChanges)
                     await _storageService.UploadImage(user.UserIdentifier, imageName, convert);
 
-                var returnType = $"img/{targetFormat}";
-                return File(convert, returnType, $"{baseImageName}.{targetFormat}");
+                var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+
+                return Ok(new ImageResponseDto()
+                {
+                    ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                    ImageName = imageName,
+                    ImageUrl = imageUrl
+                });
             } catch(FileNotFoundOnStorageException ex)
             {
                 _logger.LogError(ex, $"Image: {imageName} not found on storage");
@@ -193,10 +230,13 @@ namespace ImageProcessor.Api.Controllers
             await _storageService.UploadImage(user.UserIdentifier, imageName, stream);
             _logger.LogInformation($"User {user.UserName} uploaded an image: {imageName}");
 
+            var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+
             return Ok(new ImageResponseDto()
             {
                 ExtensionType = validateFile.ext,
-                ImageName = imageName
+                ImageName = imageName,
+                ImageUrl = imageUrl
             });
         }
 
@@ -211,7 +251,12 @@ namespace ImageProcessor.Api.Controllers
                 var image = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
                 _logger.LogInformation($"Image sas was generated: {image}");
 
-                return Ok(image);
+                return Ok(new ImageResponseDto()
+                {
+                    ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                    ImageName = imageName,
+                    ImageUrl = image
+                });
             }
             catch (FileNotFoundException ex)
             {

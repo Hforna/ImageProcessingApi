@@ -4,5 +4,6 @@
     {
         public string ImageName { get; set; }
         public string ExtensionType { get; set; }
+        public string ImageUrl { get; set; }
     }
 }
