@@ -62,6 +62,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                     var deserialize = JsonSerializer.Deserialize<CropImageMessage>(decode);
 
                     await Consume(deserialize!);
+                    await _channel.BasicAckAsync(ea.DeliveryTag, false);
                 }
                 catch (SerializationException ex)
                 {
@@ -71,16 +72,16 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                 }
                 catch (FileNotFoundException ex)
                 {
-                    await _channel.BasicNackAsync(ea.DeliveryTag, true, false);
+                    await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"An error occured while trying to consume crop image message: {ex.Message}");
-
-                    throw;
+                    await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
                 }
             };
-            
+
+            await _channel.BasicConsumeAsync("crop_image", false, consumer);
         }
 
         private async Task Consume(CropImageMessage message)
@@ -93,7 +94,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             var newImage = await _storageService.GetImageUrlByName(message.UserIdentifier, message.ImageName);
 
-            var client = _httpClient.CreateClient();
+            using var client = _httpClient.CreateClient();
 
             var response = client.PostAsJsonAsync(message.CallbackUrl, new
             {

@@ -9,6 +9,7 @@ namespace ImageProcessor.Api.RabbitMq.Producers
     {
         public Task SendImageForResize(ResizeImageMessage message);
         public Task SendImageForCrop(CropImageMessage message);
+        public Task SendImageForRotate(RotateImageMessage message);
     }
 
     public class ProcessImageProducer : IProcessImageProducer, IAsyncDisposable
@@ -59,6 +60,25 @@ namespace ImageProcessor.Api.RabbitMq.Producers
             var serialize = JsonSerializer.Serialize(message);
             var messageBytes = Encoding.UTF8.GetBytes(serialize);
             await _channel.BasicPublishAsync(ExchangeName, "crop.image", messageBytes);
+        }
+
+        public async Task SendImageForRotate(RotateImageMessage message)
+        {
+            _connection = await new ConnectionFactory()
+            {
+                Port = _configuration.GetValue<int>("services:rabbitMq:port"),
+                HostName = _configuration.GetValue<string>("services:rabbitMq:hostName")!,
+                UserName = _configuration.GetValue<string>("services:rabbitMq:username")!,
+                Password = _configuration.GetValue<string>("services:rabbitMq:password")!,
+            }.CreateConnectionAsync();
+
+            _channel = await _connection.CreateChannelAsync();
+
+            await _channel.ExchangeDeclareAsync(ExchangeName, "direct", true);
+
+            var serialize = JsonSerializer.Serialize(message);
+            var messageBytes = Encoding.UTF8.GetBytes(serialize);
+            await _channel.BasicPublishAsync(ExchangeName, "rotate.image", messageBytes);
         }
 
         public async ValueTask DisposeAsync()

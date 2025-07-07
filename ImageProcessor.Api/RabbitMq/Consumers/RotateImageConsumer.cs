@@ -1,17 +1,15 @@
-﻿
-using ImageProcessor.Api.RabbitMq.Messages;
+﻿using ImageProcessor.Api.RabbitMq.Messages;
 using ImageProcessor.Api.Services;
-using Microsoft.AspNetCore.Mvc.TagHelpers;
-using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Text.Json;
 
 namespace ImageProcessor.Api.RabbitMq.Consumers
 {
-    public class ResizeImageConsumer : BackgroundService, IAsyncDisposable
+    public class RotateImageConsumer : BackgroundService, IAsyncDisposable
     {
         private IChannel _channel;
         private IConnection _connection;
@@ -21,7 +19,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
         private readonly IStorageService _storageService;
         private readonly IHttpClientFactory _httpClient;
 
-        public ResizeImageConsumer(IConfiguration configuration, ImageService imageService, 
+        public RotateImageConsumer(IConfiguration configuration, ImageService imageService,
             IStorageService storageService, ILogger<ResizeImageConsumer> logger, IHttpClientFactory httpClient)
         {
             _configuration = configuration;
@@ -43,71 +41,69 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             _channel = await _connection.CreateChannelAsync();
 
-            await _channel.ExchangeDeclareAsync("image_process_exchange", "direct");
+            await _channel.ExchangeDeclareAsync(RabbitmqConnectionConsts.ProcessImageExchange, "direct", true, false);
 
-            await _channel.QueueDeclareAsync("resize_image", durable:true, true, false);
-            await _channel.QueueBindAsync("resize_image", "image_process_exchange", "resize.image");
+            await _channel.QueueDeclareAsync("rotate_image", true, true, false);
+            await _channel.QueueBindAsync("rotate_image", RabbitmqConnectionConsts.ProcessImageExchange, "rotate.image");
 
             var consumer = new AsyncEventingBasicConsumer(_channel);
 
-            consumer.ReceivedAsync += async (ModuleHandler, ea) =>
+            consumer.ReceivedAsync += async (ModuleHandle, ea) =>
             {
-                var body = ea.Body;
-                var message = Encoding.UTF8.GetString(body.ToArray());
-
-                _logger.LogInformation($"Message recived by consumer: {ea.RoutingKey} on exchange: {ea.Exchange}, message: {message}");
+                var message = Encoding.UTF8.GetString(ea.Body.ToArray());
 
                 try
                 {
-                    var deserialize = JsonSerializer.Deserialize<ResizeImageMessage>(message);
+                    var deserialize = JsonSerializer.Deserialize<RotateImageMessage>(message);
 
-                    await ConsumeMessage(deserialize!);
-                    await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                    await Consume(deserialize);
                 }catch(SerializationException ex)
                 {
-                    _logger.LogError($"Error occured while trying deserialize message: {ex.Message}, message recived: {message}");
+                    _logger.LogError($"Error while trying to deserialize message: {message}");
 
                     await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
                     throw;
                 }catch(FileNotFoundException ex)
                 {
+                    _logger.LogError($"File wasn't found");
                     await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
                     throw;
                 }catch(Exception ex)
                 {
-                    _logger.LogError(ex, $"An unexpectedly error occured: {ex.Message}");
-
+                    _logger.LogError(ex, $"An unexpectadly error occured: {ex.Message}");
                     await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
                     throw;
                 }
             };
 
-            await _channel.BasicConsumeAsync("resize_image", false, consumer);
+            await _channel.BasicConsumeAsync("rotate_image", false, consumer);
         }
 
-        private async Task ConsumeMessage(ResizeImageMessage message)
+        private async Task Consume(RotateImageMessage message)
         {
-            using var image = await _storageService.GetImageStreamByName(message.UserIdentifier, message.ImageName);
+            var image = await _storageService.GetImageStreamByName(message.UserIdentifier, message.ImageName);
 
-            using var resizeImage = await _imageService.ResizeImage(image, message.Width, message.Height, message.ImageType);
+            var rotateImage = await _imageService.RotateImage(image, message.Degrees, message.ImageType);
 
-            await _storageService.UploadImageOnProcess(resizeImage, message.ImageName);
+            await _storageService.UploadImageOnProcess(rotateImage, message.ImageName);
 
-            var newImage = await _storageService.GetImageUrlByName(message.UserIdentifier, message.ImageName);
+            if (message.SaveChanges)
+                await _storageService.UploadImage(message.UserIdentifier, message.ImageName, rotateImage);
 
-            using var client = _httpClient.CreateClient();
+            var imageUrl = await _storageService.GetImageUrlByName(message.UserIdentifier, message.ImageName);
 
-            var response = client.PostAsJsonAsync(message.CallbackUrl, new 
+            using(var httpClient = _httpClient.CreateClient())
             {
-                event_type = "resize_image_processed", 
-                image_url = newImage,
-                processed = true,
-                expires_at = DateTime.UtcNow.AddMinutes(30)
-            });
-
-            if (message.SaveImage)
-                await _storageService.UploadImage(message.UserIdentifier, message.ImageName, resizeImage);
+                var response = httpClient.PostAsJsonAsync(message.CallbackUrl, new
+                {
+                    event_type = "rotate_image_processed",
+                    image_url = imageUrl,
+                    processed = true,
+                    expires_at = DateTime.UtcNow.AddMinutes(30)
+                });
+            }
         }
+
 
         public async ValueTask DisposeAsync()
         {

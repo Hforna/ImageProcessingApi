@@ -47,6 +47,8 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 //rabbitmq
 //consumers
 builder.Services.AddHostedService<ResizeImageConsumer>();
+builder.Services.AddHostedService<CropImageConsumer>();
+builder.Services.AddHostedService<RotateImageConsumer>();
 
 //producers
 builder.Services.AddScoped<IProcessImageProducer, ProcessImageProducer>();
