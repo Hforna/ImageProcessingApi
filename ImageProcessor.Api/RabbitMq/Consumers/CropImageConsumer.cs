@@ -92,7 +92,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             await _storageService.UploadImageOnProcess(crop, message.ImageName);
 
-            var newImage = await _storageService.GetImageUrlByName(message.UserIdentifier, message.ImageName);
+            var newImage = await _storageService.GetImageUrlOnProcessByName(message.ImageName);
 
             using var client = _httpClient.CreateClient();
 

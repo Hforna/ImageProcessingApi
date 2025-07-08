@@ -81,15 +81,23 @@ namespace ImageProcessor.Api.Controllers
             return Ok($"Message is being processed, callbackUrl: await on {callbackUrl}");
         }
 
+        /// <summary>
+        /// Rotate an image 
+        /// </summary>
+        /// <param name="request">set on request if can save changes, for upload the image from storage, degrees number for rotate be rotated</param>
+        /// <param name="imageName">image name that user wanna rotate</param>
+        /// <param name="callbackUrl">callback for user recive their image if image size be higher than 5 mb</param>
+        /// <returns>return an image url or an ok if message is being processed in background</returns>
+        /// <exception cref="Exception"></exception>
         [HttpGet("{imageName}/rotate")]
         public async Task<IActionResult> RotateImage([FromBody]RotateImageDto request, [FromRoute]string imageName, [FromQuery]string callbackUrl)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
-        
+            
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
-        
+
             var validate = _imageService.ValidateImage(image);
-        
+
             if (!validate.isValid)
             {
                 _logger.LogError("File got from storage isn't a valid");
@@ -118,6 +126,8 @@ namespace ImageProcessor.Api.Controllers
             if (request.SaveChanges)
                 await _storageService.UploadImage(user.UserIdentifier, imageName, rotate);
 
+
+
             var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
 
             return Ok(new ImageResponseDto()
@@ -128,6 +138,13 @@ namespace ImageProcessor.Api.Controllers
             });
         }
 
+        /// <summary>
+        /// crop an image by width and height, user select an image that they uploaded before
+        /// </summary>
+        /// <param name="imageName">image name user wanna crop</param>
+        /// <param name="request">width and heigh configuration for crop, and save images if user wanna keep it on</param>
+        /// <param name="callbackUrl">callback url for user recive image when be processed</param>
+        /// <returns>return an ok with callback url where user will receive their image</returns>
         [HttpPost("{imageName}/crop")]
         public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request, [FromQuery]string callbackUrl)
         {
@@ -159,6 +176,60 @@ namespace ImageProcessor.Api.Controllers
             return Ok($"Message is being processed, callbackUrl: {callbackUrl}");
         }
 
+        /// <summary>
+        /// Flip a message on horizontal or vertical position, user get image that was they uploaded
+        /// </summary>
+        /// <param name="imageName"></param>
+        /// <param name="request">user can set if wanna flip image as horizontal or vertical, choosing 1 for horizontal or 2 for vertical</param>
+        /// <returns>return a response containing image name, extension type and an image url containing the image transformed</returns>
+        [HttpPost("{imageName}/flip")]
+        public async Task<IActionResult> FlipImage([FromRoute]string imageName, [FromBody]FlipImageDto request)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            try
+            {
+                var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+
+                var validate = _imageService.ValidateImage(image);
+
+                if(!validate.isValid)
+                {
+                    _logger.LogError("File got isn't valid");
+                    throw new Exception("Invalid file format");
+                }
+
+                var imageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!;
+
+                var flip = await _imageService.FlipImage(image, imageType, request.FlipType);
+
+                await _storageService.UploadImage(user.UserIdentifier, imageName, flip);
+
+                var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+
+                return Ok(new ImageResponseDto()
+                {
+                    ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                    ImageName = imageName,
+                    ImageUrl = imageUrl
+                });
+            }catch(FileNotFoundException ex)
+            {
+                _logger.LogError(ex, "Image name is invalid and wasn't found");
+                return NotFound();
+            }catch(Exception ex)
+            {
+                _logger.LogError(ex, $"An unexpectadly error occured: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Changes the format of an existing image that user uploaded before to the specified format
+        /// </summary>
+        /// <param name="request">Image format conversion request containing the target format</param>
+        /// <param name="imageName">Name of the image file to convert</param>
+        /// <returns>An url containing the image transformed</returns>
         [HttpPost("{imageName}/format")]
         public async Task<IActionResult> ChangeImageFormat([FromBody]ImageFormatDto request, [FromRoute]string imageName)
         {
@@ -184,8 +255,7 @@ namespace ImageProcessor.Api.Controllers
                 var convert = await _imageService.ConvertImageType(image, request.FormatType);
                 var baseImageName = Path.GetFileNameWithoutExtension(imageName);
 
-                if (request.SaveChanges)
-                    await _storageService.UploadImage(user.UserIdentifier, imageName, convert);
+                await _storageService.UploadImage(user.UserIdentifier, imageName, convert);
 
                 var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
 

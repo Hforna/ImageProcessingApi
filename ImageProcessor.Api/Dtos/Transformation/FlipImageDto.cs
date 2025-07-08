@@ -2,8 +2,8 @@
 
 namespace ImageProcessor.Api.Dtos.Transformation
 {
-    public sealed record ImageFormatDto
+    public sealed record FlipImageDto
     {
-        public ImageTypesEnum FormatType { get; set; }
+        public FlipImageEnum FlipType { get; set; }
     }
 }

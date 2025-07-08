@@ -8,6 +8,7 @@ namespace ImageProcessor.Api.Services
     public class AzureBlobStorageService : IStorageService
     {
         private readonly BlobServiceClient _blobClient;
+        private const string ProcessContainer = "images_processing";
 
         public AzureBlobStorageService(BlobServiceClient blobClient)
         {
@@ -75,11 +76,36 @@ namespace ImageProcessor.Api.Services
 
         public async Task UploadImageOnProcess(Stream image, string imageName)
         {
-            var container = _blobClient.GetBlobContainerClient("images_processing");
+            var container = _blobClient.GetBlobContainerClient(ProcessContainer);
             await container.CreateIfNotExistsAsync();
 
             var blob = container.GetBlobClient(imageName);
             await blob.UploadAsync(image, overwrite: true);
+        }
+
+        public async Task<string> GetImageUrlOnProcessByName(string imageName)
+        {
+            var container = _blobClient.GetBlobContainerClient(ProcessContainer);
+            var exists = await container.ExistsAsync();
+
+            if (!exists)
+                throw new FileNotFoundException("Process container doesn't exist");
+
+            var blob = container.GetBlobClient(imageName);
+            exists = await blob.ExistsAsync();
+
+            if (!exists)
+                throw new FileNotFoundException("Image not exists");
+
+            var sasBuilder = new BlobSasBuilder()
+            {
+                BlobContainerName = container.Name,
+                ExpiresOn = DateTime.UtcNow.AddMinutes(30),
+                Resource = "b"
+            };
+            sasBuilder.SetPermissions(BlobAccountSasPermissions.Read);
+
+            return blob.GenerateSasUri(sasBuilder).ToString();
         }
     }
 }

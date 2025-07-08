@@ -86,6 +86,23 @@ namespace ImageProcessor.Api.Services
             await image.SaveAsync(outputStream, imageEncoder);
         }
 
+        public async Task<Stream> FlipImage(Stream imageStream, ImageTypesEnum imageType, FlipImageEnum flipType)
+        {
+            var outputStream = new MemoryStream();
+
+            using(var image = await Image.LoadAsync(imageStream))
+            {
+                var type = flipType == FlipImageEnum.Horizontal ? FlipMode.Horizontal : FlipMode.Vertical;
+                image.Mutate(d => d.Flip(type));
+
+                await SaveImageBasedOnImageType(image, outputStream, imageType);
+            }
+
+            outputStream.Position = 0;
+
+            return outputStream;
+        }
+
         public async Task<Stream> ResizeImage(Stream imageStream, int width, int height, ImageTypesEnum imageType)
         {
             var outputStream = new MemoryStream();

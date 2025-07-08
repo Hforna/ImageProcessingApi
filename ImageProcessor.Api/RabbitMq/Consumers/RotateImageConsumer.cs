@@ -90,9 +90,9 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
             if (message.SaveChanges)
                 await _storageService.UploadImage(message.UserIdentifier, message.ImageName, rotateImage);
 
-            var imageUrl = await _storageService.GetImageUrlByName(message.UserIdentifier, message.ImageName);
+            var imageUrl = await _storageService.GetImageUrlOnProcessByName(message.ImageName);
 
-            using(var httpClient = _httpClient.CreateClient())
+            using (var httpClient = _httpClient.CreateClient())
             {
                 var response = httpClient.PostAsJsonAsync(message.CallbackUrl, new
                 {
