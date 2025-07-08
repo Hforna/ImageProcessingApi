@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace ImageProcessor.Api.RabbitMq.Consumers
 {
-    public class ResizeImageConsumer : BackgroundService, IAsyncDisposable
+    public class ResizeImageConsumer : BackgroundService//IAsyncDisposable
     {
         private IChannel _channel;
         private IConnection _connection;
@@ -20,15 +20,19 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
         private readonly ILogger<ResizeImageConsumer> _logger;
         private readonly IStorageService _storageService;
         private readonly IHttpClientFactory _httpClient;
+        private readonly IServiceProvider _serviceProvider;
 
-        public ResizeImageConsumer(IConfiguration configuration, ImageService imageService, 
-            IStorageService storageService, ILogger<ResizeImageConsumer> logger, IHttpClientFactory httpClient)
+        public ResizeImageConsumer(IConfiguration configuration, 
+            ILogger<ResizeImageConsumer> logger, IHttpClientFactory httpClient, IServiceProvider serviceProvider)
         {
             _configuration = configuration;
+            _serviceProvider = serviceProvider;
             _httpClient = httpClient;
-            _imageService = imageService;
             _logger = logger;
-            _storageService = storageService;
+
+            var scope = _serviceProvider.CreateScope();
+            _imageService = scope.ServiceProvider.GetRequiredService<ImageService>();
+            _storageService = scope.ServiceProvider.GetRequiredService<IStorageService>();
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -109,13 +113,13 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                 await _storageService.UploadImage(message.UserIdentifier, message.ImageName, resizeImage);
         }
 
-        public async ValueTask DisposeAsync()
-        {
-            await _channel.CloseAsync();
-            await _channel.DisposeAsync();
-
-            await _connection.CloseAsync();
-            await _connection.DisposeAsync();
-        }
+        //public async ValueTask DisposeAsync()
+        //{
+        //    await _channel.DisposeAsync();
+        //    await _channel.CloseAsync();
+        //
+        //    await _connection.DisposeAsync();
+        //    await _connection.CloseAsync();
+        //}
     }
 }
