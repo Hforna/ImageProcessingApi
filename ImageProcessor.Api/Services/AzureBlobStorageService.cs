@@ -1,6 +1,8 @@
-﻿using Azure.Storage.Blobs;
+﻿using Azure;
+using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
+using ImageProcessor.Api.Dtos;
 using System.IO;
 
 namespace ImageProcessor.Api.Services
@@ -106,6 +108,49 @@ namespace ImageProcessor.Api.Services
             sasBuilder.SetPermissions(BlobAccountSasPermissions.Read);
 
             return blob.GenerateSasUri(sasBuilder).ToString();
+        }
+
+        public async Task<BlobPagedDto> GetAllImagesFromUserContainerPaginated(int page, int quantity, Guid userId)
+        {
+            var container = _blobClient.GetBlobContainerClient(userId.ToString());
+            var exists = await container.ExistsAsync();
+
+            if (!exists)
+                throw new FileNotFoundException("User container doesn't exist");
+
+            var currentPage = 1;
+            string? continuationToken = null;
+
+            var response = new BlobPagedDto();
+
+            await foreach(Page<BlobItem> blobPage in container.GetBlobsAsync().AsPages(continuationToken, quantity))
+            {
+                continuationToken = blobPage.ContinuationToken;
+
+                if (page == currentPage)
+                {
+                    var sasBuilder = new BlobSasBuilder()
+                    {
+                        BlobContainerName = userId.ToString(),
+                        ExpiresOn = DateTime.UtcNow.AddMinutes(30),
+                        Resource = "b"
+                    };
+                    sasBuilder.SetPermissions(BlobAccountSasPermissions.Read);
+
+                    response.imageInfos = blobPage
+                                .Values
+                                .Select(d => d.Name)
+                                .ToDictionary(k => k, val => container.GetBlobClient(val).GenerateSasUri(sasBuilder).ToString());
+
+                    response.HasMorePages = continuationToken is null == false;
+                    
+                    return response;
+                }
+
+                currentPage++;
+            }
+
+            return response;
         }
     }
 }

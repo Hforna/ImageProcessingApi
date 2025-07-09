@@ -1,4 +1,6 @@
-﻿namespace ImageProcessor.Api.Services
+﻿using ImageProcessor.Api.Dtos;
+
+namespace ImageProcessor.Api.Services
 {
     public interface IStorageService
     {
@@ -7,5 +9,6 @@
         public Task<string> GetImageUrlByName(Guid userId, string imageName);
         public Task<string> GetImageUrlOnProcessByName(string imageName);
         public Task UploadImageOnProcess(Stream image, string imageName);
+        public Task<BlobPagedDto> GetAllImagesFromUserContainerPaginated(int page, int quantity, Guid userId);
     }
 }

@@ -83,6 +83,16 @@ namespace ImageProcessor.Api.Controllers
             return Ok($"Message is being processed, callbackUrl: await on {callbackUrl}");
         }
 
+
+        /// <summary>
+        /// apply watermark on the image corner, 
+        /// user can choose the text as watermark and watermark size
+        /// </summary>
+        /// <param name="imageName">The image name that user uploaded before</param>
+        /// <param name="callbackUrl">callback url for recive the image transformed</param>
+        /// <param name="request">watermark size for select the size of watermark on image, 
+        /// save change for save changes on image storage and the text for be applied on image</param>
+        /// <returns>return an ok with a call back url for recive the image</returns>
         [HttpPost("{imageName}/watermark")]
         public async Task<IActionResult> ApplyWatermark([FromRoute]string imageName, [FromQuery]string callbackUrl, [FromBody]WatermarkDto request)
         {
@@ -173,7 +183,7 @@ namespace ImageProcessor.Api.Controllers
 
             return Ok(new ImageResponseDto()
             {
-                ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                ExtensionType = Path.GetExtension(imageName),
                 ImageName = imageName,
                 ImageUrl = imageUrl
             });
@@ -250,7 +260,7 @@ namespace ImageProcessor.Api.Controllers
 
                 return Ok(new ImageResponseDto()
                 {
-                    ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                    ExtensionType = Path.GetExtension(imageName),
                     ImageName = imageName,
                     ImageUrl = imageUrl
                 });
@@ -351,6 +361,43 @@ namespace ImageProcessor.Api.Controllers
             });
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetUserImages([FromQuery]int page, [FromQuery]int quantity)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            try
+            {
+                var images = await _storageService.GetAllImagesFromUserContainerPaginated(page, quantity, user!.UserIdentifier);
+
+                if (images.imageInfos!.Count <= 0)
+                    return NoContent();
+
+                var response = new ImagesResponseDto() { HasMorePages = images.HasMorePages };
+                response.Images = images.imageInfos.Select(d =>
+                {
+                    var imageResponse = new ImageResponseDto()
+                    {
+                        ImageName = d.Key,
+                        ImageUrl = d.Value,
+                        ExtensionType = Path.GetExtension(d.Key)
+                    };
+
+                    return imageResponse;   
+                }).ToList();
+
+                return Ok(response);
+            }catch(FileNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"An error occured while trying to get user images: {ex.Message}");
+                throw;
+            }
+        }
+
 
         [HttpGet("{imageName}")]
         public async Task<IActionResult> GetImageByName([FromRoute] string imageName)
@@ -364,7 +411,7 @@ namespace ImageProcessor.Api.Controllers
 
                 return Ok(new ImageResponseDto()
                 {
-                    ExtensionType = Path.GetFileNameWithoutExtension(imageName),
+                    ExtensionType = Path.GetExtension(imageName),
                     ImageName = imageName,
                     ImageUrl = image
                 });
