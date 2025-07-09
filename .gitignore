@@ -10,6 +10,8 @@
 *.sln.docstates
 *.userprefs
 
+**/fonts
+
 **/data
 
 appsettings*.json

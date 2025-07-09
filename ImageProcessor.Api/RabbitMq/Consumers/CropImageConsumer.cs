@@ -9,7 +9,7 @@ using System.Text.Json;
 
 namespace ImageProcessor.Api.RabbitMq.Consumers
 {
-    public class CropImageConsumer : BackgroundService //IAsyncDisposable
+    public class CropImageConsumer : BackgroundService, IDisposable
     {
         private readonly IConfiguration _configuration;
         private IConnection _connection;
@@ -110,13 +110,10 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
         }
 
 
-        //public async ValueTask DisposeAsync()
-        //{
-        //    await _channel.DisposeAsync();
-        //    await _channel.CloseAsync();
-        //
-        //    await _connection.DisposeAsync();
-        //    await _connection.CloseAsync();
-        //}
+        public void Dispose()
+        {
+            _channel.CloseAsync();
+            GC.SuppressFinalize(this);
+        }
     }
 }

@@ -49,6 +49,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddHostedService<ResizeImageConsumer>();
 builder.Services.AddHostedService<CropImageConsumer>();
 builder.Services.AddHostedService<RotateImageConsumer>();
+builder.Services.AddHostedService<WatermarkOnImageConsumer>();
 
 //producers
 builder.Services.AddScoped<IProcessImageProducer, ProcessImageProducer>();

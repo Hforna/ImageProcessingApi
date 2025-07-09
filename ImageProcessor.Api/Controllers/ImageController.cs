@@ -6,12 +6,14 @@ using ImageProcessor.Api.Enums;
 using ImageProcessor.Api.Exceptions;
 using ImageProcessor.Api.Extensions;
 using ImageProcessor.Api.Model;
+using ImageProcessor.Api.RabbitMq.Consumers;
 using ImageProcessor.Api.RabbitMq.Messages;
 using ImageProcessor.Api.RabbitMq.Producers;
 using ImageProcessor.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.TagHelpers;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Identity.Client;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
@@ -81,6 +83,45 @@ namespace ImageProcessor.Api.Controllers
             return Ok($"Message is being processed, callbackUrl: await on {callbackUrl}");
         }
 
+        [HttpPost("{imageName}/watermark")]
+        public async Task<IActionResult> ApplyWatermark([FromRoute]string imageName, [FromQuery]string callbackUrl, [FromBody]WatermarkDto request)
+        {
+            if (request.WatermarkSize < 1)
+                return BadRequest("Watermark size too short");
+
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+
+            try
+            {
+                using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+
+                var validate = _imageService.ValidateImage(image);
+
+                if (!validate.isValid)
+                    throw new Exception("Invalid file format");
+
+                var message = new ApplyWatermarkMessage()
+                {
+                    CallbackUrl = callbackUrl,
+                    ImageName = imageName,
+                    ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                    SaveChanges = request.SaveChanges,
+                    UserId = user.UserIdentifier,
+                    WatermarkSize = request.WatermarkSize,
+                    Text = request.Text
+                };
+
+                await _imageProducer.SendImageForApplyWatermark(message);
+
+                return Ok("Message is being processed");
+
+            }catch(FileNotFoundException ex)
+            {
+                return NotFound("Image wasn't found");
+            }
+        }
+
+
         /// <summary>
         /// Rotate an image 
         /// </summary>
@@ -94,7 +135,7 @@ namespace ImageProcessor.Api.Controllers
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
             
-            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+            using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
             var validate = _imageService.ValidateImage(image);
 
@@ -113,7 +154,7 @@ namespace ImageProcessor.Api.Controllers
                     ImageName = imageName,
                     ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
                     UserIdentifier = user.UserIdentifier,
-                    SaveChanges = request.SaveChanges
+                    SaveChanges = request.SaveChanges,
                 };
 
                 await _imageProducer.SendImageForRotate(message);
@@ -126,9 +167,9 @@ namespace ImageProcessor.Api.Controllers
             if (request.SaveChanges)
                 await _storageService.UploadImage(user.UserIdentifier, imageName, rotate);
 
+            await _storageService.UploadImageOnProcess(rotate, imageName);
 
-
-            var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+            var imageUrl = await _storageService.GetImageUrlOnProcessByName(imageName);
 
             return Ok(new ImageResponseDto()
             {
@@ -150,7 +191,7 @@ namespace ImageProcessor.Api.Controllers
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
-            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+            using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
             
             var validate = _imageService.ValidateImage(image);
 
@@ -189,7 +230,7 @@ namespace ImageProcessor.Api.Controllers
 
             try
             {
-                var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+                using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
                 var validate = _imageService.ValidateImage(image);
 
@@ -203,9 +244,9 @@ namespace ImageProcessor.Api.Controllers
 
                 var flip = await _imageService.FlipImage(image, imageType, request.FlipType);
 
-                await _storageService.UploadImage(user.UserIdentifier, imageName, flip);
+                await _storageService.UploadImageOnProcess(flip, imageName);
 
-                var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+                var imageUrl = await _storageService.GetImageUrlOnProcessByName(imageName);
 
                 return Ok(new ImageResponseDto()
                 {
@@ -255,9 +296,9 @@ namespace ImageProcessor.Api.Controllers
                 var convert = await _imageService.ConvertImageType(image, request.FormatType);
                 var baseImageName = Path.GetFileNameWithoutExtension(imageName);
 
-                await _storageService.UploadImage(user.UserIdentifier, imageName, convert);
+                await _storageService.UploadImageOnProcess(convert, imageName);
 
-                var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
+                var imageUrl = await _storageService.GetImageUrlOnProcessByName(imageName);
 
                 return Ok(new ImageResponseDto()
                 {

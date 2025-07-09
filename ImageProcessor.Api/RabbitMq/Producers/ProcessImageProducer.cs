@@ -10,9 +10,10 @@ namespace ImageProcessor.Api.RabbitMq.Producers
         public Task SendImageForResize(ResizeImageMessage message);
         public Task SendImageForCrop(CropImageMessage message);
         public Task SendImageForRotate(RotateImageMessage message);
+        public Task SendImageForApplyWatermark(ApplyWatermarkMessage message);
     }
 
-    public class ProcessImageProducer : IProcessImageProducer, IAsyncDisposable
+    public class ProcessImageProducer : IProcessImageProducer, IDisposable
     {
         private IChannel _channel;
         private IConfiguration _configuration;
@@ -81,13 +82,29 @@ namespace ImageProcessor.Api.RabbitMq.Producers
             await _channel.BasicPublishAsync(ExchangeName, "rotate.image", messageBytes);
         }
 
-        public async ValueTask DisposeAsync()
+        public async Task SendImageForApplyWatermark(ApplyWatermarkMessage message)
         {
-            await _channel.CloseAsync();
-            await _channel.DisposeAsync();
+            _connection = await new ConnectionFactory()
+            {
+                Port = _configuration.GetValue<int>("services:rabbitMq:port"),
+                HostName = _configuration.GetValue<string>("services:rabbitMq:hostName")!,
+                UserName = _configuration.GetValue<string>("services:rabbitMq:username")!,
+                Password = _configuration.GetValue<string>("services:rabbitMq:password")!,
+            }.CreateConnectionAsync();
 
-            await _connection.CloseAsync();
-            await _connection.DisposeAsync();
+            _channel = await _connection.CreateChannelAsync();
+
+            await _channel.ExchangeDeclareAsync(ExchangeName, "direct", true);
+
+            var serialize = JsonSerializer.Serialize(message);
+            var encodeMessage = Encoding.UTF8.GetBytes(serialize);
+            await _channel.BasicPublishAsync(ExchangeName, "watermark.image", encodeMessage);
+        }
+
+        public void Dispose()
+        {
+            _channel.CloseAsync();
+            GC.SuppressFinalize(this);
         }
     }
 }
