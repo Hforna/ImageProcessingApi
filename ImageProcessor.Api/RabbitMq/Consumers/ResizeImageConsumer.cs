@@ -47,7 +47,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             _channel = await _connection.CreateChannelAsync();
 
-            await _channel.ExchangeDeclareAsync("image_process_exchange", "direct");
+            await _channel.ExchangeDeclareAsync("image_process_exchange", "direct", true);
 
             await _channel.QueueDeclareAsync("resize_image", durable:true, true, false);
             await _channel.QueueBindAsync("resize_image", "image_process_exchange", "resize.image");
@@ -106,6 +106,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                 event_type = "resize_image_processed", 
                 image_url = newImage,
                 processed = true,
+                processed_at = DateTime.UtcNow,
                 expires_at = DateTime.UtcNow.AddMinutes(30)
             });
 
@@ -115,7 +116,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
         public void Dispose()
         {
-            _channel.CloseAsync();
+            //_channel.CloseAsync();
             GC.SuppressFinalize(this);
         }
     }

@@ -65,6 +65,9 @@ builder.Services.AddScoped<ITokenService, TokenService>(d => new TokenService(si
     expires, 
     d.CreateScope().ServiceProvider.GetRequiredService<IUnitOfWork>(), d.CreateScope().ServiceProvider.GetRequiredService<IHttpContextAccessor>()));
 
+builder.Services.AddTransient<IImageFilter, GrayscaleFilter>();
+builder.Services.AddTransient<IImageFilter, SepiaFilter>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

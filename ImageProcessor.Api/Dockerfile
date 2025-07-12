@@ -6,7 +6,17 @@ USER app
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
+USER root
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libfontconfig1 \
+    libfreetype6 \
+    libx11-6 \
+    libxext6 \
+    libxrender1 \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Esta fase é usada para compilar o projeto de serviço
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -28,3 +38,5 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "ImageProcessor.Api.dll"]
+RUN apt-get update && \
+    apt-get install -y libfontconfig1 libfreetype6 libx11-6 libxext6 libxrender1 libgl1

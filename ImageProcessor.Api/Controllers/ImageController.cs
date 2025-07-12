@@ -83,6 +83,18 @@ namespace ImageProcessor.Api.Controllers
             return Ok($"Message is being processed, callbackUrl: await on {callbackUrl}");
         }
 
+        [HttpPost("{imageName}/filters")]
+        public async Task<IActionResult> ApplyFiltersOnImage([FromForm] FilterOnImageDto request, [FromQuery]string callbackUrl)
+        {
+            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var image = request.file.OpenReadStream();
+
+            var filter = _imageService.ApplyImageFilter(image, (ImageTypesEnum)image.GetImageStreamTypeAsEnum(), request.FilterName);
+
+            return File(filter, "img/png", "asdfasdf.png");
+        }
+
+
 
         /// <summary>
         /// apply watermark on the image corner, 
@@ -145,7 +157,7 @@ namespace ImageProcessor.Api.Controllers
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
             
-            using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
             var validate = _imageService.ValidateImage(image);
 
@@ -201,7 +213,7 @@ namespace ImageProcessor.Api.Controllers
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
-            using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+            var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
             
             var validate = _imageService.ValidateImage(image);
 
@@ -240,7 +252,7 @@ namespace ImageProcessor.Api.Controllers
 
             try
             {
-                using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+                var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
                 var validate = _imageService.ValidateImage(image);
 
@@ -288,7 +300,7 @@ namespace ImageProcessor.Api.Controllers
 
             try
             {
-                using var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
+                var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
                 var validate = _imageService.ValidateImage(image);
 
@@ -334,7 +346,7 @@ namespace ImageProcessor.Api.Controllers
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
-            using var stream = request.File.OpenReadStream();
+            var stream = request.File.OpenReadStream();
 
             var validateFile = _imageService.ValidateImage(stream);
 

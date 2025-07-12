@@ -103,6 +103,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                     event_type = "rotate_image_processed",
                     image_url = imageUrl,
                     processed = true,
+                    processed_at = DateTime.UtcNow,
                     expires_at = DateTime.UtcNow.AddMinutes(30)
                 });
             }
@@ -111,7 +112,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
         public void Dispose()
         {
-            _channel.CloseAsync();
+            //_channel.CloseAsync();
             GC.SuppressFinalize(this);
         }
     }

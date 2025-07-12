@@ -18,6 +18,15 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
         private readonly IHttpClientFactory _httpClient;
         private readonly IConfiguration _configuration;
 
+        public WatermarkOnImageConsumer(IServiceProvider serviceProvider, 
+            ILogger<WatermarkOnImageConsumer> logger, IHttpClientFactory httpClient, IConfiguration configuration)
+        {
+            _serviceProvider = serviceProvider;
+            _logger = logger;
+            _httpClient = httpClient;
+            _configuration = configuration;
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _connection = await new ConnectionFactory()
@@ -95,6 +104,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                     event_type = "watermark_image_processed",
                     image_url = imageUrl,
                     processed = true,
+                    processed_at = DateTime.UtcNow,
                     expires_at = DateTime.UtcNow.AddMinutes(30)
                 });
             }
@@ -102,7 +112,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
         public void Dispose()
         {
-            _channel.CloseAsync();
+            //_channel.CloseAsync();
             GC.SuppressFinalize(this);
         }
     }

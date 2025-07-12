@@ -11,6 +11,7 @@ namespace ImageProcessor.Api.RabbitMq.Producers
         public Task SendImageForCrop(CropImageMessage message);
         public Task SendImageForRotate(RotateImageMessage message);
         public Task SendImageForApplyWatermark(ApplyWatermarkMessage message);
+        //public Task SendMessageForApplyFilter();
     }
 
     public class ProcessImageProducer : IProcessImageProducer, IDisposable
@@ -103,7 +104,7 @@ namespace ImageProcessor.Api.RabbitMq.Producers
 
         public void Dispose()
         {
-            _channel.CloseAsync();
+            //_channel.CloseAsync();
             GC.SuppressFinalize(this);
         }
     }
