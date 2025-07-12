@@ -11,7 +11,7 @@ namespace ImageProcessor.Api.RabbitMq.Producers
         public Task SendImageForCrop(CropImageMessage message);
         public Task SendImageForRotate(RotateImageMessage message);
         public Task SendImageForApplyWatermark(ApplyWatermarkMessage message);
-        //public Task SendMessageForApplyFilter();
+        public Task SendMessageForApplyFilter(FilterOnImageMessage message);
     }
 
     public class ProcessImageProducer : IProcessImageProducer, IDisposable
@@ -24,6 +24,25 @@ namespace ImageProcessor.Api.RabbitMq.Producers
         public ProcessImageProducer(IConfiguration configuration)
         {
             _configuration = configuration;
+        }
+
+        public async Task SendMessageForApplyFilter(FilterOnImageMessage message)
+        {
+            _connection = await new ConnectionFactory()
+            {
+                Port = _configuration.GetValue<int>("services:rabbitMq:port"),
+                HostName = _configuration.GetValue<string>("services:rabbitMq:hostName")!,
+                UserName = _configuration.GetValue<string>("services:rabbitMq:username")!,
+                Password = _configuration.GetValue<string>("services:rabbitMq:password")!,
+            }.CreateConnectionAsync();
+
+            _channel = await _connection.CreateChannelAsync();
+
+            await _channel.ExchangeDeclareAsync(ExchangeName, "direct", durable: true);
+
+            var serialize = JsonSerializer.Serialize(message);
+            var messageBytes = Encoding.UTF8.GetBytes(serialize);
+            await _channel.BasicPublishAsync(ExchangeName, "filter.image", messageBytes);
         }
 
         public async Task SendImageForResize(ResizeImageMessage message)

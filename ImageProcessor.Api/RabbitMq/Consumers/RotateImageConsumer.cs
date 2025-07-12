@@ -9,7 +9,7 @@ using System.Text.Json;
 
 namespace ImageProcessor.Api.RabbitMq.Consumers
 {
-    public class RotateImageConsumer : BackgroundService, IDisposable
+    public class RotateImageConsumer : BackgroundService
     {
         private IChannel _channel;
         private IConnection _connection;
@@ -98,7 +98,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             using (var httpClient = _httpClient.CreateClient())
             {
-                var response = httpClient.PostAsJsonAsync(message.CallbackUrl, new
+                var response = await httpClient.PostAsJsonAsync(message.CallbackUrl, new
                 {
                     event_type = "rotate_image_processed",
                     image_url = imageUrl,
@@ -106,11 +106,14 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
                     processed_at = DateTime.UtcNow,
                     expires_at = DateTime.UtcNow.AddMinutes(30)
                 });
+
+                if (!response.IsSuccessStatusCode)
+                    throw new Exception($"Error while trying to make request to {message.CallbackUrl}");
             }
         }
 
 
-        public void Dispose()
+        public override void Dispose()
         {
             //_channel.CloseAsync();
             GC.SuppressFinalize(this);

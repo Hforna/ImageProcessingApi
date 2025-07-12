@@ -4,6 +4,5 @@
     {
         public string FilterName { get; set; }
         public bool SaveChanges { get; set; }
-        public IFormFile file { get; set; }
     }
 }

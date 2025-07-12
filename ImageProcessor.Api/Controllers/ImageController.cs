@@ -72,7 +72,7 @@ namespace ImageProcessor.Api.Controllers
                 Height = request.Height,
                 Width = request.Width,
                 ImageName = imageName,
-                ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                ImageType = image.GetImageStreamTypeAsEnum(),
                 UserIdentifier = user.UserIdentifier,
                 SaveImage = request.SaveChanges,
                 CallbackUrl = callbackUrl,
@@ -83,18 +83,53 @@ namespace ImageProcessor.Api.Controllers
             return Ok($"Message is being processed, callbackUrl: await on {callbackUrl}");
         }
 
+        /// <summary>
+        /// Apply a filter on an image storaged, avaliable filters are: grayscale and sepia 
+        /// </summary>
+        /// <param name="request">filter name must be the avaliables and
+        /// save changes if user wanna keep filters applied on default storage image</param>
+        /// <param name="callbackUrl">callback url for user recive the image with filter applied</param>
+        /// <param name="imageName">image name storage by user before</param>
+        /// <returns>return an ok with callback path for user await for the image</returns>
         [HttpPost("{imageName}/filters")]
-        public async Task<IActionResult> ApplyFiltersOnImage([FromForm] FilterOnImageDto request, [FromQuery]string callbackUrl)
+        public async Task<IActionResult> ApplyFiltersOnImage([FromBody] FilterOnImageDto request, [FromQuery]string callbackUrl, [FromRoute]string imageName)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
-            var image = request.file.OpenReadStream();
 
-            var filter = _imageService.ApplyImageFilter(image, (ImageTypesEnum)image.GetImageStreamTypeAsEnum(), request.FilterName);
+            try
+            {
+                var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
-            return File(filter, "img/png", "asdfasdf.png");
+                var message = new FilterOnImageMessage()
+                {
+                    CallbackUrl = callbackUrl,
+                    FilterName = request.FilterName,
+                    ImageName = imageName,
+                    ImageType = image.GetImageStreamTypeAsEnum(),
+                    SaveChanges = request.SaveChanges,
+                    UserIdentifier = user.UserIdentifier
+                };
+
+                var validate = _imageService.ValidateImage(image);
+
+                if (!validate.isValid)
+                    throw new Exception("Invalid file format");
+
+                await _imageProducer.SendMessageForApplyFilter(message);
+
+                return Ok($"Message is being processed await on: {callbackUrl}");
+            }
+            catch (FileNotFoundException ex)
+            {
+                _logger.LogError(ex, $"Image: {imageName} was not found");
+
+                return NotFound("Image wasn't found");
+            }catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Unexpectadly error occured: {ex.Message}");
+                throw;
+            }
         }
-
-
 
         /// <summary>
         /// apply watermark on the image corner, 
@@ -135,7 +170,7 @@ namespace ImageProcessor.Api.Controllers
 
                 await _imageProducer.SendImageForApplyWatermark(message);
 
-                return Ok("Message is being processed");
+                return Ok($"Message is being processed await on: {callbackUrl}");
 
             }catch(FileNotFoundException ex)
             {
@@ -174,7 +209,7 @@ namespace ImageProcessor.Api.Controllers
                     CallbackUrl = callbackUrl,
                     Degrees = request.Degrees,
                     ImageName = imageName,
-                    ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                    ImageType = image.GetImageStreamTypeAsEnum()!,
                     UserIdentifier = user.UserIdentifier,
                     SaveChanges = request.SaveChanges,
                 };
@@ -183,7 +218,7 @@ namespace ImageProcessor.Api.Controllers
 
                 return Ok($"Message is begin processed, callbackUrl: await on {callbackUrl}");
             }
-            var imageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!;
+            var imageType = image.GetImageStreamTypeAsEnum()!;
             var rotate = await _imageService.RotateImage(image, request.Degrees, imageType!);
 
             if (request.SaveChanges)
@@ -229,7 +264,7 @@ namespace ImageProcessor.Api.Controllers
                 Height = request.Height,
                 Width = request.Width,
                 ImageName = imageName,
-                ImageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!,
+                ImageType = image.GetImageStreamTypeAsEnum()!,
                 SaveImage = request.SaveChanges,
                 UserIdentifier = user.UserIdentifier
             };
@@ -262,7 +297,7 @@ namespace ImageProcessor.Api.Controllers
                     throw new Exception("Invalid file format");
                 }
 
-                var imageType = (ImageTypesEnum)image.GetImageStreamTypeAsEnum()!;
+                var imageType = image.GetImageStreamTypeAsEnum()!;
 
                 var flip = await _imageService.FlipImage(image, imageType, request.FlipType);
 

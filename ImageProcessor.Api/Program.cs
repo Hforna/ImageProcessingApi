@@ -50,6 +50,7 @@ builder.Services.AddHostedService<ResizeImageConsumer>();
 builder.Services.AddHostedService<CropImageConsumer>();
 builder.Services.AddHostedService<RotateImageConsumer>();
 builder.Services.AddHostedService<WatermarkOnImageConsumer>();
+builder.Services.AddHostedService<FilterOnImageConsumer>();
 
 //producers
 builder.Services.AddScoped<IProcessImageProducer, ProcessImageProducer>();

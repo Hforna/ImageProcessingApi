@@ -9,7 +9,7 @@ using System.Text.Json;
 
 namespace ImageProcessor.Api.RabbitMq.Consumers
 {
-    public class CropImageConsumer : BackgroundService, IDisposable
+    public class CropImageConsumer : BackgroundService
     {
         private readonly IConfiguration _configuration;
         private IConnection _connection;
@@ -97,7 +97,7 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             using var client = _httpClient.CreateClient();
 
-            var response = client.PostAsJsonAsync(message.CallbackUrl, new
+            var response = await client.PostAsJsonAsync(message.CallbackUrl, new
             {
                 event_type = "crop_image_processed",
                 image_url = newImage,
@@ -108,10 +108,13 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
 
             if (message.SaveImage)
                 await _storageService.UploadImage(message.UserIdentifier, message.ImageName, crop);
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"Error while trying to make request to {message.CallbackUrl}");
         }
 
 
-        public void Dispose()
+        public override void Dispose()
         {
             //_channel.CloseAsync();
             GC.SuppressFinalize(this);

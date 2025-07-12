@@ -9,7 +9,7 @@ namespace ImageProcessor.Api.Extensions
 {
     public static class FileTyeExtension
     {
-        public static ImageTypesEnum? GetImageStreamTypeAsEnum(this Stream image)
+        public static ImageTypesEnum GetImageStreamTypeAsEnum(this Stream image)
         {
             var ext = "";
 
@@ -25,9 +25,9 @@ namespace ImageProcessor.Api.Extensions
             image.Position = 0;
 
             if (string.IsNullOrEmpty(ext))
-                return null;
+                throw new Exception("Stream file isn't an image");
 
-            ImageTypesEnum? type = null;
+            ImageTypesEnum type;
 
             switch (ext)
             {
@@ -37,6 +37,8 @@ namespace ImageProcessor.Api.Extensions
                 case (".jpeg"):
                     type = ImageTypesEnum.JPEG;
                     break;
+                default:
+                    throw new Exception("Stream file isn't an image");
             }
 
             return type;
