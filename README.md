@@ -32,3 +32,5 @@ A robust API for uploading images to Azure Blob Storage, processing them in back
 - RabbitMQ instance (local or cloud)
 - .NET 6.0+ SDK
 - Azure Storage SDK
+
+Project ideia got from https://roadmap.sh/projects/image-processing-service
