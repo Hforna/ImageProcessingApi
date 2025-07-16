@@ -1,40 +1,34 @@
-# Image Processing API with Azure Storage
+# Image Processing API with Azure Storage & RabbitMQ
 
-![Azure Blob Storage](https://img.shields.io/badge/Azure%20Blob%20Storage-0089D6?logo=microsoft-azure&logoColor=white)
-![Image Processing](https://img.shields.io/badge/Image%20Processing-FF6F61?logo=opencv&logoColor=white)
+A robust API for uploading images to Azure Blob Storage, processing them in background with RabbitMQ, and delivering results via callback URLs.
 
-A robust API for uploading images to Azure Blob Storage and performing various image transformations.
+![Azure Blob Storage + RabbitMQ](https://img.shields.io/badge/Azure%20Blob-RabbitMQ-purple) 
+![.NET 6+](https://img.shields.io/badge/.NET-6+-blueviolet)
 
 ## ✨ Features
 
-- **Cloud Storage**
-  - Secure upload/download to Azure Blob Storage
-  - Automatic file organization
-  - Metadata management
+### Cloud Storage
+- Secure upload/download to Azure Blob Storage
+- Automatic file organization with metadata management
+- SAS URL generation for temporary access
 
-- **Image Transformations**
-  - 🔄 Rotate (90°, 180°, 270°)
-  - ↔️ Flip/Mirror (horizontal, vertical)
-  - 📏 Resize (with aspect ratio preservation)
-  - 🎨 Filters (grayscale, sepia, blur, sharpen)
-  - ✂️ Crop (with customizable regions)
-  - 🌈 Adjustments (brightness, contrast, saturation)
+### Image Transformations
+- **Rotation**: 90°, 180°, 270°
+- **Flip/Mirror**: Horizontal, vertical
+- **Resize**: With aspect ratio preservation
+- **Filters**: Grayscale, sepia, blur, sharpen
+- **Crop**: Customizable regions
 
-- **Advanced Features**
-  - Batch processing
-  - Format conversion (JPG, PNG, WEBP, etc.)
-  - Transformation pipelines
-  - Thumbnail generation
+### Advanced Processing
+- **Background Processing**: RabbitMQ queue integration
+- **Callback Notifications**: HTTP POST to your endpoint when processing completes
+- **Batch Processing**: Process multiple images in one request
+- **Format Conversion**: JPG, PNG, WEBP, GIF
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Azure account with Blob Storage
+- Azure account with Blob Storage configured
+- RabbitMQ instance (local or cloud)
 - .NET 6.0+ SDK
 - Azure Storage SDK
-
-### Installation
-```bash
-git clone https://github.com/yourusername/image-processing-api.git
-cd image-processing-api
-dotnet restore
