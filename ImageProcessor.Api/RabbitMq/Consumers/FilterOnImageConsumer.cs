@@ -16,6 +16,15 @@ namespace ImageProcessor.Api.RabbitMq.Consumers
         private readonly IConfiguration _configuration;
         private readonly ILogger<FilterOnImageConsumer> _logger;
 
+        public FilterOnImageConsumer(IServiceProvider serviceProvider, IHttpClientFactory httpClient, 
+            IConfiguration configuration, ILogger<FilterOnImageConsumer> logger)
+        {
+            _serviceProvider = serviceProvider;
+            _httpClient = httpClient;
+            _configuration = configuration;
+            _logger = logger;
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var connection = await new ConnectionFactory()

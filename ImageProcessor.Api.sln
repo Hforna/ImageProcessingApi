@@ -7,6 +7,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImageProcessor.Api", "Image
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{721178B8-19AE-4975-9C6D-A745F16C354A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageProcessor.Tests", "ImageProcessor.Tests\ImageProcessor.Tests.csproj", "{E1B707BD-83FF-4380-B6D9-EFAD83DB93C4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{438BABEB-8C9F-41A6-85A4-5DC74A1BAE95} = {438BABEB-8C9F-41A6-85A4-5DC74A1BAE95}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +26,10 @@ Global
 		{721178B8-19AE-4975-9C6D-A745F16C354A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{721178B8-19AE-4975-9C6D-A745F16C354A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{721178B8-19AE-4975-9C6D-A745F16C354A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1B707BD-83FF-4380-B6D9-EFAD83DB93C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1B707BD-83FF-4380-B6D9-EFAD83DB93C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1B707BD-83FF-4380-B6D9-EFAD83DB93C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1B707BD-83FF-4380-B6D9-EFAD83DB93C4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

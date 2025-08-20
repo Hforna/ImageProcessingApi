@@ -56,22 +56,6 @@ namespace ImageProcessor.Api.Services
         public double GetImageSizeInMb(long imageLength) => imageLength / (1024.0 * 1024.0);
         public double GetImageSizeInKb(long imageLength) => imageLength / 1024.0;
 
-        public async Task<Stream> ApplyGrascaleFilterOnImage(Stream imageStream, ImageTypesEnum imageType)
-        {
-            var outputStream = new MemoryStream();
-
-            using(var image = await Image.LoadAsync(imageStream))
-            {
-                image.Mutate(d => d.Grayscale(GrayscaleMode.Bt709));
-
-                await SaveImageBasedOnImageType(image, outputStream, imageType);
-            }
-
-            outputStream.Position = 0;
-
-            return outputStream;
-        }
-
         public async Task<Stream> CropImage(Stream imageStream, int width, int height, ImageTypesEnum imageType)
         {
             var outputStream = new MemoryStream();
