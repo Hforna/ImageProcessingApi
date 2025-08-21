@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using ImageProcessor.Api.Dtos;
+using ImageProcessor.Api.Exceptions;
 using System.IO;
 
 namespace ImageProcessor.Api.Services
@@ -33,13 +34,13 @@ namespace ImageProcessor.Api.Services
             var exists = await container.ExistsAsync();
 
             if (!exists)
-                throw new FileNotFoundException("User container doesn't exist");
+                throw new FileNotFoundOnStorageException("User container doesn't exist");
 
             var blob = container.GetBlobClient(imageName);
             exists = await blob.ExistsAsync();
 
             if(!exists)
-                throw new FileNotFoundException("Image not exists");
+                throw new FileNotFoundOnStorageException("Image not exists");
 
             var memoryStream = new MemoryStream();
 
@@ -63,7 +64,7 @@ namespace ImageProcessor.Api.Services
             exists = await blob.ExistsAsync();
 
             if (!exists)
-                throw new FileNotFoundException("Image not exists");
+                throw new FileNotFoundOnStorageException("Image not exists");
 
             var sasBuilder = new BlobSasBuilder()
             {
@@ -91,13 +92,13 @@ namespace ImageProcessor.Api.Services
             var exists = await container.ExistsAsync();
 
             if (!exists)
-                throw new FileNotFoundException("Process container doesn't exist");
+                throw new FileNotFoundOnStorageException("Process container doesn't exist");
 
             var blob = container.GetBlobClient(imageName);
             exists = await blob.ExistsAsync();
 
             if (!exists)
-                throw new FileNotFoundException("Image not exists");
+                throw new FileNotFoundOnStorageException("Image not exists");
 
             var sasBuilder = new BlobSasBuilder()
             {
@@ -116,7 +117,7 @@ namespace ImageProcessor.Api.Services
             var exists = await container.ExistsAsync();
 
             if (!exists)
-                throw new FileNotFoundException("User container doesn't exist");
+                throw new FileNotFoundOnStorageException("User container doesn't exist");
 
             var currentPage = 1;
             string? continuationToken = null;

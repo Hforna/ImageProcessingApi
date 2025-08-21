@@ -5,17 +5,10 @@ using ImageProcessor.Api.Dtos.Transformation;
 using ImageProcessor.Api.Enums;
 using ImageProcessor.Api.Exceptions;
 using ImageProcessor.Api.Extensions;
-using ImageProcessor.Api.Model;
-using ImageProcessor.Api.RabbitMq.Consumers;
 using ImageProcessor.Api.RabbitMq.Messages;
 using ImageProcessor.Api.RabbitMq.Producers;
 using ImageProcessor.Api.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.TagHelpers;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Identity.Client;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace ImageProcessor.Api.Controllers
 {
@@ -31,8 +24,8 @@ namespace ImageProcessor.Api.Controllers
         private readonly ITokenService _tokenService;
         private readonly IProcessImageProducer _imageProducer;
 
-        public ImageController(ILogger<ImageController> logger, IUnitOfWork uow, 
-            IStorageService storageService, ImageService imageService, 
+        public ImageController(ILogger<ImageController> logger, IUnitOfWork uow,
+            IStorageService storageService, ImageService imageService,
             ITokenService tokenService, IProcessImageProducer imageProducer)
         {
             _logger = logger;
@@ -44,7 +37,7 @@ namespace ImageProcessor.Api.Controllers
         }
 
         /// <summary>
-        /// Resize a image from user images by heigh and width, 
+        /// Resize a image from user images by heigh and width,
         /// return a ok and webhook configured will recive the image when
         /// </summary>
         /// <param name="request"></param>
@@ -53,7 +46,7 @@ namespace ImageProcessor.Api.Controllers
         /// <param name="callbackUrl">callback for user recive their image</param>
         /// <returns>Return ok if message and request is valid</returns>
         [HttpPost("{imageName}/resize")]
-        public async Task<IActionResult> ResizeImage([FromBody]ReziseImageDto request, [FromRoute]string imageName, [FromQuery]string callbackUrl)
+        public async Task<IActionResult> ResizeImage([FromBody] ReziseImageDto request, [FromRoute] string imageName, [FromQuery] string callbackUrl)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
@@ -61,7 +54,7 @@ namespace ImageProcessor.Api.Controllers
 
             var validate = _imageService.ValidateImage(image);
 
-            if(!validate.isValid)
+            if (!validate.isValid)
             {
                 _logger.LogError("File got from storage isn't a valid");
                 throw new Exception("Invalid file format");
@@ -84,7 +77,7 @@ namespace ImageProcessor.Api.Controllers
         }
 
         /// <summary>
-        /// Apply a filter on an image storaged, avaliable filters are: grayscale and sepia 
+        /// Apply a filter on an image storaged, avaliable filters are: grayscale and sepia
         /// </summary>
         /// <param name="request">filter name must be the avaliables and
         /// save changes if user wanna keep filters applied on default storage image</param>
@@ -92,14 +85,15 @@ namespace ImageProcessor.Api.Controllers
         /// <param name="imageName">image name storage by user before</param>
         /// <returns>return an ok with callback path for user await for the image</returns>
         [HttpPost("{imageName}/filters")]
-        public async Task<IActionResult> ApplyFiltersOnImage([FromBody] FilterOnImageDto request, [FromQuery]string callbackUrl, [FromRoute]string imageName)
+        public async Task<IActionResult> ApplyFiltersOnImage([FromBody] FilterOnImageDto request, [FromQuery] string callbackUrl, 
+            [FromRoute] string imageName)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
             try
             {
                 var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
-
+                
                 var message = new FilterOnImageMessage()
                 {
                     CallbackUrl = callbackUrl,
@@ -119,12 +113,13 @@ namespace ImageProcessor.Api.Controllers
 
                 return Ok($"Message is being processed await on: {callbackUrl}");
             }
-            catch (FileNotFoundException ex)
+            catch (FileNotFoundOnStorageException ex)
             {
                 _logger.LogError(ex, $"Image: {imageName} was not found");
 
                 return NotFound("Image wasn't found");
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 _logger.LogError(ex, $"Unexpectadly error occured: {ex.Message}");
                 throw;
@@ -132,16 +127,16 @@ namespace ImageProcessor.Api.Controllers
         }
 
         /// <summary>
-        /// apply watermark on the image corner, 
+        /// apply watermark on the image corner,
         /// user can choose the text as watermark and watermark size
         /// </summary>
         /// <param name="imageName">The image name that user uploaded before</param>
         /// <param name="callbackUrl">callback url for recive the image transformed</param>
-        /// <param name="request">watermark size for select the size of watermark on image, 
+        /// <param name="request">watermark size for select the size of watermark on image,
         /// save change for save changes on image storage and the text for be applied on image</param>
         /// <returns>return an ok with a call back url for recive the image</returns>
         [HttpPost("{imageName}/watermark")]
-        public async Task<IActionResult> ApplyWatermark([FromRoute]string imageName, [FromQuery]string callbackUrl, [FromBody]WatermarkDto request)
+        public async Task<IActionResult> ApplyWatermark([FromRoute] string imageName, [FromQuery] string callbackUrl, [FromBody] WatermarkDto request)
         {
             if (request.WatermarkSize < 1)
                 return BadRequest("Watermark size too short");
@@ -171,16 +166,15 @@ namespace ImageProcessor.Api.Controllers
                 await _imageProducer.SendImageForApplyWatermark(message);
 
                 return Ok($"Message is being processed await on: {callbackUrl}");
-
-            }catch(FileNotFoundException ex)
+            }
+            catch (FileNotFoundOnStorageException ex)
             {
                 return NotFound("Image wasn't found");
             }
         }
 
-
         /// <summary>
-        /// Rotate an image 
+        /// Rotate an image
         /// </summary>
         /// <param name="request">set on request if can save changes, for upload the image from storage, degrees number for rotate be rotated</param>
         /// <param name="imageName">image name that user wanna rotate</param>
@@ -188,10 +182,10 @@ namespace ImageProcessor.Api.Controllers
         /// <returns>return an image url or an ok if message is being processed in background</returns>
         /// <exception cref="Exception"></exception>
         [HttpGet("{imageName}/rotate")]
-        public async Task<IActionResult> RotateImage([FromBody]RotateImageDto request, [FromRoute]string imageName, [FromQuery]string callbackUrl)
+        public async Task<IActionResult> RotateImage([FromBody] RotateImageDto request, [FromRoute] string imageName, [FromQuery] string callbackUrl)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
-            
+
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
             var validate = _imageService.ValidateImage(image);
@@ -202,7 +196,7 @@ namespace ImageProcessor.Api.Controllers
                 throw new Exception("Invalid file format");
             }
 
-            if(_imageService.GetImageSizeInMb(image.Length) > 5)
+            if (_imageService.GetImageSizeInMb(image.Length) > 5)
             {
                 var message = new RotateImageMessage()
                 {
@@ -244,15 +238,15 @@ namespace ImageProcessor.Api.Controllers
         /// <param name="callbackUrl">callback url for user recive image when be processed</param>
         /// <returns>return an ok with callback url where user will receive their image</returns>
         [HttpPost("{imageName}/crop")]
-        public async Task<IActionResult> CropImage([FromRoute]string imageName, [FromBody]ImageCropDto request, [FromQuery]string callbackUrl)
+        public async Task<IActionResult> CropImage([FromRoute] string imageName, [FromBody] ImageCropDto request, [FromQuery] string callbackUrl)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
-            
+
             var validate = _imageService.ValidateImage(image);
 
-            if(!validate.isValid)
+            if (!validate.isValid)
             {
                 _logger.LogError("File got from storage isn't a valid");
                 throw new Exception("Invalid file format");
@@ -281,7 +275,7 @@ namespace ImageProcessor.Api.Controllers
         /// <param name="request">user can set if wanna flip image as horizontal or vertical, choosing 1 for horizontal or 2 for vertical</param>
         /// <returns>return a response containing image name, extension type and an image url containing the image transformed</returns>
         [HttpPost("{imageName}/flip")]
-        public async Task<IActionResult> FlipImage([FromRoute]string imageName, [FromBody]FlipImageDto request)
+        public async Task<IActionResult> FlipImage([FromRoute] string imageName, [FromBody] FlipImageDto request)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
@@ -291,7 +285,7 @@ namespace ImageProcessor.Api.Controllers
 
                 var validate = _imageService.ValidateImage(image);
 
-                if(!validate.isValid)
+                if (!validate.isValid)
                 {
                     _logger.LogError("File got isn't valid");
                     throw new Exception("Invalid file format");
@@ -311,11 +305,13 @@ namespace ImageProcessor.Api.Controllers
                     ImageName = imageName,
                     ImageUrl = imageUrl
                 });
-            }catch(FileNotFoundException ex)
+            }
+            catch (FileNotFoundOnStorageException ex)
             {
                 _logger.LogError(ex, "Image name is invalid and wasn't found");
                 return NotFound();
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 _logger.LogError(ex, $"An unexpectadly error occured: {ex.Message}");
                 throw;
@@ -329,7 +325,7 @@ namespace ImageProcessor.Api.Controllers
         /// <param name="imageName">Name of the image file to convert</param>
         /// <returns>An url containing the image transformed</returns>
         [HttpPost("{imageName}/format")]
-        public async Task<IActionResult> ChangeImageFormat([FromBody]ImageFormatDto request, [FromRoute]string imageName)
+        public async Task<IActionResult> ChangeImageFormat([FromBody] ImageFormatDto request, [FromRoute] string imageName)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
@@ -363,18 +359,19 @@ namespace ImageProcessor.Api.Controllers
                     ImageName = imageName,
                     ImageUrl = imageUrl
                 });
-            } catch(FileNotFoundOnStorageException ex)
+            }
+            catch (FileNotFoundOnStorageException ex)
             {
                 _logger.LogError(ex, $"Image: {imageName} not found on storage");
 
                 return NotFound(ex.Message);
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 _logger.LogError(ex, $"An error occured: {ex.Message}");
                 return StatusCode(500, ex.Message);
             }
         }
-
 
         [HttpPost]
         public async Task<IActionResult> UploadImage([FromForm] UploadImageDto request)
@@ -395,9 +392,18 @@ namespace ImageProcessor.Api.Controllers
                 ? $"{Guid.NewGuid()}{validateFile.ext}"
                 : $"{request.ImageName}{validateFile.ext}";
 
-            await _storageService.UploadImage(user.UserIdentifier, imageName, stream);
-            _logger.LogInformation($"User {user.UserName} uploaded an image: {imageName}");
+            try
+            {
+                await _storageService.UploadImage(user.UserIdentifier, imageName, stream);
+                _logger.LogInformation($"User {user.UserName} uploaded an image: {imageName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Image: {request.ImageName} couldn't be uploaded");
 
+                throw new UploadImageException("There was an error while trying to upload the image");
+            }
+            
             var imageUrl = await _storageService.GetImageUrlByName(user.UserIdentifier, imageName);
 
             return Ok(new ImageResponseDto()
@@ -409,7 +415,7 @@ namespace ImageProcessor.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetUserImages([FromQuery]int page, [FromQuery]int quantity)
+        public async Task<IActionResult> GetUserImages([FromQuery] int page, [FromQuery] int quantity)
         {
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
@@ -430,21 +436,21 @@ namespace ImageProcessor.Api.Controllers
                         ExtensionType = Path.GetExtension(d.Key)
                     };
 
-                    return imageResponse;   
+                    return imageResponse;
                 }).ToList();
 
                 return Ok(response);
-            }catch(FileNotFoundException ex)
+            }
+            catch (FileNotFoundOnStorageException ex)
             {
                 return NotFound(ex.Message);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, $"An error occured while trying to get user images: {ex.Message}");
                 throw;
             }
         }
-
 
         [HttpGet("{imageName}")]
         public async Task<IActionResult> GetImageByName([FromRoute] string imageName)
@@ -463,7 +469,7 @@ namespace ImageProcessor.Api.Controllers
                     ImageUrl = image
                 });
             }
-            catch (FileNotFoundException ex)
+            catch (FileNotFoundOnStorageException ex)
             {
                 return NotFound(ex.Message);
             }
@@ -474,6 +480,5 @@ namespace ImageProcessor.Api.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
-
     }
 }

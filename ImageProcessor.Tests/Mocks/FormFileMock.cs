@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace ImageProcessor.Tests.Mocks
 {
-    public static class FormFileMock
+    public class FormFileMock
     {
-        public static IFormFile GenerateFormFileMock(FakeFileData fileData = null)
+        public IFormFile GenerateFormFileMock(FakeFileData fileData = null)
         {
             var faker = fileData ?? new FileDataFaker().GenerateFormFileData();
 

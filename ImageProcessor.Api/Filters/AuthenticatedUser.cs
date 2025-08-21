@@ -34,6 +34,9 @@ namespace ImageProcessor.Api.Filters
             }catch(SecurityTokenExpiredException ex)
             {
                 throw new UnauthorizedAccessException(ex.Message);
+            }catch(Exception ex)
+            {
+                throw new UnauthorizedAccessException("Couldn't get info about the request user");
             }
         }
     }

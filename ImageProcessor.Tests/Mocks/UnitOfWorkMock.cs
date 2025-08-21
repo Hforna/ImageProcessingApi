@@ -1,4 +1,5 @@
 ﻿using ImageProcessor.Api.Data;
+using ImageProcessor.Api.Services;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -8,10 +9,11 @@ using System.Threading.Tasks;
 
 namespace ImageProcessor.Tests.Mocks
 {
-    public static class UnitOfWorkMock
+    public class UnitOfWorkMock
     {
-        private static IMock<IUnitOfWork> _mock => new Mock<IUnitOfWork>();
+        private Mock<IUnitOfWork> _mock => new Mock<IUnitOfWork>();
 
-        public static IUnitOfWork GetMock() => _mock.Object;
+        public IUnitOfWork GetMockObject() => _mock.Object;
+        public Mock<IUnitOfWork> GetMock() => _mock;
     }
 }

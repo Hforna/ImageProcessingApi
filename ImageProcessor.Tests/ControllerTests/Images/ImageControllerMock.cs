@@ -14,16 +14,16 @@ using System.Threading.Tasks;
 
 namespace ImageProcessor.Tests.ControllerTests.Images
 {
-    public static class ImageControllerMock
+    public class ImageControllerMock
     {
-        public static ImageController GenerateImageController(ILogger<ImageController>? logger = null, IUnitOfWork? uow = null, 
+        public ImageController Generate(ILogger<ImageController>? logger = null, IUnitOfWork? uow = null, 
             ImageService? imageService = null, IStorageService? storageService = null, ITokenService? tokenService = null)
         {
             logger = logger ?? new Mock<ILogger<ImageController>>().Object;
             uow = uow ?? new Mock<IUnitOfWork>().Object;
             storageService = storageService ?? new Mock<IStorageService>().Object;
             tokenService = tokenService ?? new Mock<ITokenService>().Object;
-            imageService = imageService ?? new Mock<ImageService>().Object;
+            imageService = imageService ?? new ImageService(new List<IImageFilter>());
             var rabbitProducer = new Mock<IProcessImageProducer>().Object;
 
             return new ImageController(logger, uow, storageService, imageService, tokenService, rabbitProducer);

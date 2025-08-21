@@ -23,11 +23,12 @@ namespace ImageProcessor.Tests.ControllerTests.Images
             var user = new UserModelFaker().GenerateRandomUser();
             var request = new UploadImageDtoFaker().GenerateUploadImageDto();
 
-            TokenServiceMock.SetGetUserByToken(user);
-            var tokenService = TokenServiceMock.GetMock();
+            var tokenService = new TokenServiceMock();
+            tokenService.SetGetUserByToken(user);
+
             var imageService = new ImageService(new List<IImageFilter>());
-            var controller = ImageControllerMock.GenerateImageController(
-            tokenService: tokenService,
+            var controller = new ImageControllerMock().Generate(
+            tokenService: tokenService.GetMockObject(),
             imageService: imageService);
 
             ///Act
@@ -46,26 +47,25 @@ namespace ImageProcessor.Tests.ControllerTests.Images
             var user = new UserModelFaker().GenerateRandomUser();
             var request = new UploadImageDtoFaker().GenerateUploadImageDto();
             var imageType = EImageType.PNG;
-            request.File = FormFileMock.GenerateFormFileMock(new FileDataFaker().GenerateFormFileData(imageType));
+            request.File = new FormFileMock().GenerateFormFileMock(new FileDataFaker().GenerateFormFileData(imageType));
 
-            TokenServiceMock.SetGetUserByToken(user);
-            var tokenService = TokenServiceMock.GetMock();
+            var tokenService = new TokenServiceMock();
+            tokenService.SetGetUserByToken(user);
 
             var imageService = new ImageService(new List<IImageFilter>());
             var imageName = $"{request.ImageName}.{imageType.ToString().ToLower()}";
 
-            StorageServiceMock.SetImageUrl("https://imageurl.com");
+            var storageService = new StorageServiceMock();
+            storageService.SetImageUrl("https://imageurl.com");
 
-            var storageService = StorageServiceMock.GetMock();
-
-            var controller = ImageControllerMock.GenerateImageController(
-            tokenService: tokenService,
+            var controller = new ImageControllerMock().Generate(
+            tokenService: tokenService.GetMockObject(),
             imageService: imageService,
-            storageService: storageService);
+            storageService: storageService.GetMockObject());
 
             var result = await controller.UploadImage(request);
 
-            result.Should().BeOfType<OkObjectResult>().Which.Value.Should();
+            result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeOfType<ImageResponseDto>();
             var obj = result as OkObjectResult;
             var value = obj.Value as ImageResponseDto;
             value.ImageUrl.Should().Be("https://imageurl.com");

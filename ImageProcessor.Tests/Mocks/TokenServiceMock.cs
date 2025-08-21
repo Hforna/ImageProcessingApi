@@ -9,13 +9,13 @@ using System.Threading.Tasks;
 
 namespace ImageProcessor.Tests.Mocks
 {
-    public static class TokenServiceMock
+    public class TokenServiceMock
     {
-        private static Mock<ITokenService> _mock = new Mock<ITokenService>();
+        private Mock<ITokenService> _mock = new Mock<ITokenService>();
+        public Mock<ITokenService> GetMock() => _mock;
+        public ITokenService GetMockObject() => _mock.Object;
 
-        public static ITokenService GetMock() => _mock.Object;
-
-        public static void SetGetUserByToken(User? user)
+        public void SetGetUserByToken(User? user)
         {
             _mock.Setup(d => d.GetUserByToken(It.IsAny<string>())).ReturnsAsync(user);
         }

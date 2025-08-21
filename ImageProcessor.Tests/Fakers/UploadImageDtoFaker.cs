@@ -18,7 +18,7 @@ namespace ImageProcessor.Tests.Fakers
         {
             return new Faker<UploadImageDto>()
                 .RuleFor(d => d.ImageName, Guid.NewGuid().ToString())
-                .RuleFor(d => d.File, FormFileMock.GenerateFormFileMock());
+                .RuleFor(d => d.File, new FormFileMock().GenerateFormFileMock());
         }
     }
 

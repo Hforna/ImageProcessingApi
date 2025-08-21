@@ -8,14 +8,19 @@ using System.Threading.Tasks;
 
 namespace ImageProcessor.Tests.Mocks
 {
-    public static class StorageServiceMock
+    public class StorageServiceMock
     {
-        private static Mock<IStorageService> _mock = new Mock<IStorageService>();
-
-        public static IStorageService GetMock() => _mock.Object;
-        public static void SetImageUrl(string url)
+        private Mock<IStorageService> _mock = new Mock<IStorageService>();
+        public Mock<IStorageService> GetMock() => _mock;
+        public IStorageService GetMockObject() => _mock.Object;
+        public void SetImageUrl(string url)
         {
             _mock.Setup(d => d.GetImageUrlByName(It.IsAny<Guid>(), It.IsAny<string>())).ReturnsAsync(url);
+        }
+
+        public void SetImageUrlByNameThrowingFileNotFound()
+        {
+            _mock.Setup(d => d.GetImageUrlByName(It.IsAny<Guid>(), It.IsAny<string>())).Throws<FileNotFoundException>();
         }
     }
 }
