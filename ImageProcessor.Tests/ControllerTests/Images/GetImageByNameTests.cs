@@ -6,6 +6,7 @@ using ImageProcessor.Tests.Fakers;
 using ImageProcessor.Tests.Mocks;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using SixLabors.ImageSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,7 +43,58 @@ namespace ImageProcessor.Tests.ControllerTests.Images
         }
 
         [Fact]
-        public async Task ImageByName_UserNotAuthenticated_ThrowException()
+        public async Task ImageByName_EmtpyImageName_ReturnBadRequest()
+        {
+            var imageName = "";
+            var user = new UserModelFaker().GenerateRandomUser();
+
+            var tokenService = new TokenServiceMock();
+            tokenService.SetGetUserByToken(user);
+            var storageService = new StorageServiceMock();
+            var strServiceMock = storageService.GetMock();
+            strServiceMock.Setup(d => d.GetImageUrlByName(user.UserIdentifier, imageName))
+                .ReturnsAsync("https://imageurl.com/adsfasdf");
+
+            var controller = new ImageControllerMock().Generate(
+                tokenService: tokenService.GetMockObject(), 
+                storageService: storageService.GetMockObject());
+
+            var result = await controller.GetImageByName(imageName);
+
+            result.Should().BeOfType<BadRequestObjectResult>()
+                .Which
+                .Value
+                .Should().Be("Image name cannot be null or empty");
+        }
+
+        [Fact]
+        public async Task ImageByName_ExternalError_ReturnException()
+        {
+            var imageName = $"{Guid.NewGuid()}.jpeg";
+            var user = new UserModelFaker().GenerateRandomUser();
+
+            var tokenService = new TokenServiceMock();
+            tokenService.SetGetUserByToken(user);
+            var storageService = new StorageServiceMock();
+            var strServiceMock = storageService.GetMock();
+            strServiceMock.Setup(d => d.GetImageUrlByName(user.UserIdentifier, imageName))
+                .ThrowsAsync(new Exception("Random internal server error"));
+
+            var controller = new ImageControllerMock().Generate(
+                tokenService: tokenService.GetMockObject(),
+                storageService: storageService.GetMockObject());
+
+            var result = await controller.GetImageByName(imageName);
+
+            result.Should().BeOfType<ObjectResult>()
+                .Which
+                .StatusCode.Should().Be(500)
+                .And
+                .HaveValue("Random internal server error");
+        }
+
+        [Fact]
+        public async Task ImageByName_ReturnsOk()
         {
             //Arrange
             var imageName = $"{Guid.NewGuid()}.png";
@@ -62,7 +114,7 @@ namespace ImageProcessor.Tests.ControllerTests.Images
 
             var result = await controller.GetImageByName(imageName);
 
-            result.Should().BeOfType<OkObjectResult>().Which.Value.Should();
+            result.Should().BeOfType<OkObjectResult>();
             OkObjectResult objOk = result as OkObjectResult;
             var objRes = objOk!.Value as ImageResponseDto;
             Assert.Equal(".png", objRes.ExtensionType);

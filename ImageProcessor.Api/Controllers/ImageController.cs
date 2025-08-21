@@ -455,6 +455,9 @@ namespace ImageProcessor.Api.Controllers
         [HttpGet("{imageName}")]
         public async Task<IActionResult> GetImageByName([FromRoute] string imageName)
         {
+            if (string.IsNullOrEmpty(imageName))
+                return BadRequest("Image name cannot be null or empty");
+
             var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
 
             try
