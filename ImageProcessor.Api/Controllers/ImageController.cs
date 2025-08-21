@@ -48,7 +48,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpPost("{imageName}/resize")]
         public async Task<IActionResult> ResizeImage([FromBody] ReziseImageDto request, [FromRoute] string imageName, [FromQuery] string callbackUrl)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
@@ -88,7 +88,7 @@ namespace ImageProcessor.Api.Controllers
         public async Task<IActionResult> ApplyFiltersOnImage([FromBody] FilterOnImageDto request, [FromQuery] string callbackUrl, 
             [FromRoute] string imageName)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             try
             {
@@ -141,7 +141,7 @@ namespace ImageProcessor.Api.Controllers
             if (request.WatermarkSize < 1)
                 return BadRequest("Watermark size too short");
 
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             try
             {
@@ -184,7 +184,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpGet("{imageName}/rotate")]
         public async Task<IActionResult> RotateImage([FromBody] RotateImageDto request, [FromRoute] string imageName, [FromQuery] string callbackUrl)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
@@ -240,7 +240,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpPost("{imageName}/crop")]
         public async Task<IActionResult> CropImage([FromRoute] string imageName, [FromBody] ImageCropDto request, [FromQuery] string callbackUrl)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             var image = await _storageService.GetImageStreamByName(user.UserIdentifier, imageName);
 
@@ -277,7 +277,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpPost("{imageName}/flip")]
         public async Task<IActionResult> FlipImage([FromRoute] string imageName, [FromBody] FlipImageDto request)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             try
             {
@@ -327,7 +327,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpPost("{imageName}/format")]
         public async Task<IActionResult> ChangeImageFormat([FromBody] ImageFormatDto request, [FromRoute] string imageName)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             try
             {
@@ -376,7 +376,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> UploadImage([FromForm] UploadImageDto request)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             var stream = request.File.OpenReadStream();
 
@@ -417,7 +417,7 @@ namespace ImageProcessor.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetUserImages([FromQuery] int page, [FromQuery] int quantity)
         {
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             try
             {
@@ -458,7 +458,7 @@ namespace ImageProcessor.Api.Controllers
             if (string.IsNullOrEmpty(imageName))
                 return BadRequest("Image name cannot be null or empty");
 
-            var user = await _tokenService.GetUserByToken(_tokenService.GetRequestToken()!);
+            var user = await _tokenService.GetUserByToken();
 
             try
             {

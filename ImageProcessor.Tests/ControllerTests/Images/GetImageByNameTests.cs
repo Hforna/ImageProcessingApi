@@ -29,7 +29,7 @@ namespace ImageProcessor.Tests.ControllerTests.Images
             var storageService = new StorageServiceMock();
             var strServiceMock = storageService.GetMock();
             strServiceMock.Setup(d => d.GetImageUrlByName(user.UserIdentifier, imageName))
-                .Throws(new FileNotFoundOnStorageException("Image not exists"));
+                .ThrowsAsync(new FileNotFoundOnStorageException("Image not exists"));
 
             ///Act
             var controller = new ImageControllerMock().Generate(
@@ -43,7 +43,7 @@ namespace ImageProcessor.Tests.ControllerTests.Images
         }
 
         [Fact]
-        public async Task ImageByName_EmtpyImageName_ReturnBadRequest()
+        public async Task ImageByName_EmptyImageName_ReturnBadRequest()
         {
             var imageName = "";
             var user = new UserModelFaker().GenerateRandomUser();
@@ -68,7 +68,7 @@ namespace ImageProcessor.Tests.ControllerTests.Images
         }
 
         [Fact]
-        public async Task ImageByName_ExternalError_ReturnException()
+        public async Task ImageByName_ExternalError_ReturnInternalServerError()
         {
             var imageName = $"{Guid.NewGuid()}.jpeg";
             var user = new UserModelFaker().GenerateRandomUser();
@@ -94,7 +94,7 @@ namespace ImageProcessor.Tests.ControllerTests.Images
         }
 
         [Fact]
-        public async Task ImageByName_ReturnsOk()
+        public async Task ImageByName_WhenImageExists_ReturnsOk()
         {
             //Arrange
             var imageName = $"{Guid.NewGuid()}.png";

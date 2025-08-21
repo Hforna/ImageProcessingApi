@@ -17,7 +17,7 @@ namespace ImageProcessor.Tests.Mocks
 
         public void SetGetUserByToken(User? user)
         {
-            _mock.Setup(d => d.GetUserByToken(It.IsAny<string>())).ReturnsAsync(user);
+            _mock.Setup(d => d.GetUserByToken()).ReturnsAsync(user);
         }
     }
 }

@@ -13,7 +13,7 @@ namespace ImageProcessor.Api.Services
         public DateTime GetExpirationTime();
         public string GenerateRefreshToken();
         public Guid ValidateToken(string token);
-        public Task<User?> GetUserByToken(string token);
+        public Task<User?> GetUserByToken();
         public string? GetRequestToken();
     }
 
@@ -71,11 +71,11 @@ namespace ImageProcessor.Api.Services
             return token["Bearer ".Length..].Trim();
         }
 
-        public async Task<User?> GetUserByToken(string token)
+        public async Task<User?> GetUserByToken()
         {
             var handler = new JwtSecurityTokenHandler();
 
-            var read = handler.ReadJwtToken(token);
+            var read = handler.ReadJwtToken(GetRequestToken());
 
             var uid = Guid.Parse(read.Claims.FirstOrDefault(d => d.Type == ClaimTypes.Sid)!.Value);
 
